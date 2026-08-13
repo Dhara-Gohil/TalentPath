@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "install:all": "npm install --prefix server && npm install --prefix client",
-    "build": "DATABASE_URL=\"${DATABASE_URL:-file:./dev.db}\" npm run install:all && DATABASE_URL=\"${DATABASE_URL:-file:./dev.db}\" npm run build --prefix client && DATABASE_URL=\"${DATABASE_URL:-file:./dev.db}\" npm run build --prefix server",
+    "build": "npm run install:all && npm run build --prefix client && npm run build --prefix server",
     "start": "npm run start --prefix server",
     "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\""
   },

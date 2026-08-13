@@ -5,9 +5,9 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "DATABASE_URL=\"${DATABASE_URL:-file:./dev.db}\" prisma generate && DATABASE_URL=\"${DATABASE_URL:-file:./dev.db}\" prisma db push --accept-data-loss && tsc",
+    "build": "prisma generate && prisma db push --accept-data-loss && tsc",
     "start": "node dist/index.js",
-    "postinstall": "DATABASE_URL=\"${DATABASE_URL:-file:./dev.db}\" prisma generate",
+    "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma db push",
     "test": "echo \"Error: no test specified\" && exit 1"
