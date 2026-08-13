@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: interview-summary
+    runtime: node
+    plan: starter   # required for persistent disk — free tier disks reset on every deploy/restart
+    buildCommand: npm run install:all && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    disk:
+      name: sqlite-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: file:/var/data/app.db
+      - key: JWT_SECRET
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: CLIENT_URL
+        value: "" # same-origin, not needed for combined deploy — see index.ts note below

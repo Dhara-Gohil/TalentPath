@@ -1,0 +1,116 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("CANDIDATE") // ADMIN, RECRUITER, INTERVIEWER, CANDIDATE
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  interviews Interview[]
+  feedback   Feedback[]
+  profile    CandidateProfile?
+  candidates Candidate[]
+}
+
+model Job {
+  id                 String   @id @default(uuid())
+  title              String
+  description        String
+  department         String
+  location           String
+  employmentType     String   // FULL_TIME, PART_TIME, CONTRACT, INTERNSHIP
+  experienceRequired String
+  requiredSkills     String   // Comma separated or JSON string
+  status             String   @default("DRAFT") // DRAFT, OPEN, CLOSED
+  createdBy          String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  candidates Candidate[]
+}
+
+model CandidateProfile {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  name            String
+  email           String
+  phone           String
+  experienceYears Int
+  skills          String
+  resumeText      String
+  aiSummary       String?  // Saved Candidate Profile AI Summary (3rd summary)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Candidate {
+  id              String   @id @default(uuid())
+  name            String
+  email           String
+  phone           String
+  resumeText      String
+  experienceYears Int
+  skills          String   // Comma separated or JSON string
+  status          String   @default("APPLIED") // APPLIED, SCREENING, INTERVIEW, SHORTLISTED, HIRED, REJECTED
+  aiEvaluation    String?  // Saved AI evaluation JSON string
+  jobId           String
+  userId          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  job        Job         @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  user       User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  interviews Interview[]
+}
+
+model Interview {
+  id            String   @id @default(uuid())
+  candidateId   String
+  interviewerId String
+  scheduledAt   DateTime
+  duration      Int      // In minutes
+  type          String   // TECHNICAL, HR, MANAGERIAL, CULTURAL
+  status        String   @default("SCHEDULED") // SCHEDULED, COMPLETED, CANCELLED, RESCHEDULED
+  meetingLink   String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  candidate   Candidate  @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  interviewer User       @relation(fields: [interviewerId], references: [id])
+  feedback    Feedback[]
+}
+
+model Feedback {
+  id                   String   @id @default(uuid())
+  interviewId          String
+  createdBy            String
+  technicalRating      Int
+  communicationRating  Int
+  problemSolvingRating Int
+  cultureFitRating     Int
+  strengths            String
+  weaknesses           String
+  comments             String
+  recommendation       String   // STRONG_YES, YES, MAYBE, NO, STRONG_NO
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  interview   Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  interviewer User      @relation(fields: [createdBy], references: [id])
+}

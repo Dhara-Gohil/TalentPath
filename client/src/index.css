@@ -1,0 +1,126 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --bg-app: #07080A;
+  --bg-secondary: #0B0D10;
+  --bg-surface: #101318;
+  --bg-elevated: #151920;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-medium: rgba(255, 255, 255, 0.14);
+  --text-primary: #F5F7FA;
+  --text-secondary: #969DAA;
+  --text-muted: #626975;
+  --accent-primary: #6366f1;
+  --accent-violet: #818cf8;
+  --accent-cyan: #06b6d4;
+  --accent-emerald: #10b981;
+  --accent-amber: #f59e0b;
+  --accent-coral: #f43f5e;
+}
+
+* {
+  box-sizing: border-box;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+html, body, #root {
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Subtle background atmosphere */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 600px;
+  background: radial-gradient(circle 800px at 50% -100px, rgba(99, 102, 241, 0.05), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Custom Sleek Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-app);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* Monospaced class for statistics & technical metrics */
+.font-mono {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
+  letter-spacing: -0.02em;
+}
+
+/* Status Indicator Dots */
+.status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+.status-dot-open { background-color: var(--accent-emerald); }
+.status-dot-draft { background-color: var(--accent-amber); }
+.status-dot-closed { background-color: var(--accent-coral); }
+.status-dot-applied { background-color: var(--text-muted); }
+.status-dot-screening { background-color: var(--accent-cyan); }
+.status-dot-interview { background-color: var(--accent-primary); }
+.status-dot-shortlisted { background-color: var(--accent-violet); }
+.status-dot-hired { background-color: var(--accent-emerald); }
+.status-dot-rejected { background-color: var(--accent-coral); }
+
+/* AI Sparkle Gradient Border */
+.ai-gradient-card {
+  position: relative;
+  background: var(--bg-surface);
+  border: 1px solid rgba(129, 140, 248, 0.3) !important;
+}
+
+.ai-gradient-card::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.4), rgba(6, 182, 212, 0.2), transparent 70%);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* AI Skeleton Animation */
+@keyframes aiPulse {
+  0% { opacity: 0.4; }
+  50% { opacity: 0.9; }
+  100% { opacity: 0.4; }
+}
+
+.ai-pulse-loading {
+  animation: aiPulse 1.8s ease-in-out infinite;
+}
+
+/* Smooth Focus Ring without Shadow */
+input:focus, textarea:focus, select:focus {
+  outline: 1px solid var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
+}
