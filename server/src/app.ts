@@ -17,15 +17,36 @@ dotenv.config();
 
 // Automatic database initialization for Vercel serverless environment
 if (process.env.VERCEL) {
-  try {
-    const dbPath = '/tmp/dev.db';
-    if (!fs.existsSync(dbPath)) {
-      process.env.DATABASE_URL = `file:${dbPath}`;
-      const serverRoot = path.resolve(__dirname, '..');
-      execSync('npx prisma db push --accept-data-loss', { cwd: serverRoot, stdio: 'inherit' });
+  const tmpDbPath = '/tmp/dev.db';
+  process.env.DATABASE_URL = `file:${tmpDbPath}`;
+
+  if (!fs.existsSync(tmpDbPath)) {
+    try {
+      const possibleSources = [
+        path.resolve(__dirname, '../prisma/dev.db'),
+        path.resolve(__dirname, '../../server/prisma/dev.db'),
+        path.resolve(process.cwd(), 'server/prisma/dev.db'),
+        path.resolve(process.cwd(), 'prisma/dev.db')
+      ];
+
+      let copied = false;
+      for (const src of possibleSources) {
+        if (fs.existsSync(src)) {
+          fs.copyFileSync(src, tmpDbPath);
+          console.log(`Copied database template from ${src} to ${tmpDbPath}`);
+          copied = true;
+          break;
+        }
+      }
+
+      if (!copied) {
+        console.log('No pre-built DB template found, executing prisma db push...');
+        const serverRoot = path.resolve(__dirname, '..');
+        execSync('npx prisma db push --accept-data-loss', { cwd: serverRoot, stdio: 'inherit' });
+      }
+    } catch (err) {
+      console.error('Vercel DB initialization error:', err);
     }
-  } catch (err) {
-    console.error('Vercel DB initialization error:', err);
   }
 }
 
