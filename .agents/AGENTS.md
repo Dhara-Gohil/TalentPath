@@ -30,8 +30,8 @@ schema, or UI — do not invent synonyms.
 - **Roles**: `ADMIN`, `RECRUITER`
 - **Job status**: `DRAFT`, `OPEN`, `CLOSED`
 - **Employment type**: `FULL_TIME`, `PART_TIME`, `CONTRACT`, `INTERNSHIP`
-- **Candidate status**: `APPLIED`, `SCREENING`, `INTERVIEW`, `SHORTLISTED`, `REJECTED`, `HIRED`
-  - Allowed forward transitions: `APPLIED → SCREENING → INTERVIEW → SHORTLISTED → HIRED`
+- **Candidate status**: `APPLIED`, `SCREENING`, `SHORTLISTED`, `INTERVIEW`, `REJECTED`, `HIRED`
+  - Allowed forward transitions: `APPLIED → SCREENING → SHORTLISTED → INTERVIEW → HIRED`
   - `REJECTED` is reachable from any active stage
   - No other transitions are valid; enforce this on the backend, not just the UI
 - **Interview type**: `TECHNICAL`, `HR`, `MANAGERIAL`, `CULTURAL`

@@ -7,7 +7,7 @@ export const submitFeedbackSchema = z.object({
   cultureFitRating: z.number().int('Rating must be integer').min(1, 'Rating must be 1-10').max(10, 'Rating must be 1-10'),
   strengths: z.string().min(5, 'Strengths must be at least 5 characters'),
   weaknesses: z.string().min(5, 'Weaknesses must be at least 5 characters'),
-  comments: z.string().min(1, 'Comments are required'),
+  comments: z.string().optional().or(z.literal('')),
   recommendation: z.enum(['STRONG_YES', 'YES', 'MAYBE', 'NO', 'STRONG_NO']),
 });
 

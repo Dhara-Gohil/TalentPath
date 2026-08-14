@@ -467,7 +467,7 @@ const CandidateList = () => {
                             }
                           }}
                         >
-                          {['APPLIED', 'SCREENING', 'INTERVIEW', 'SHORTLISTED', 'HIRED', 'REJECTED'].map(s => (
+                          {['APPLIED', 'SCREENING', 'SHORTLISTED', 'INTERVIEW', 'HIRED', 'REJECTED'].map(s => (
                             <MenuItem key={s} value={s} sx={{ fontSize: '0.75rem' }}>
                               <Box display="flex" alignItems="center">
                                 <span className={`status-dot status-dot-${s.toLowerCase()}`}></span>

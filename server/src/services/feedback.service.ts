@@ -19,6 +19,7 @@ export const feedbackService = {
     return prisma.feedback.create({
       data: {
         ...data,
+        comments: data.comments || '',
         interviewId,
         createdBy: userId,
       },
@@ -39,9 +40,14 @@ export const feedbackService = {
       throw { statusCode: 403, message: 'You are not authorized to update feedback submitted by another interviewer' };
     }
 
+    const updateData: any = { ...data };
+    if (data.comments !== undefined) {
+      updateData.comments = data.comments || '';
+    }
+
     return prisma.feedback.update({
       where: { id: feedbackId },
-      data,
+      data: updateData,
     });
   },
 

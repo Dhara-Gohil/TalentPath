@@ -14,7 +14,7 @@ const feedbackSchema = z.object({
   cultureFitRating: z.coerce.number().min(1, 'Rating required').max(10),
   strengths: z.string().min(5, 'Provide at least 5 characters for strengths'),
   weaknesses: z.string().min(5, 'Provide at least 5 characters for weaknesses'),
-  comments: z.string(),
+  comments: z.string().optional(),
   recommendation: z.enum(['STRONG_YES', 'YES', 'MAYBE', 'NO', 'STRONG_NO']),
 });
 

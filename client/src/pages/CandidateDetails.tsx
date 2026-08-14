@@ -72,10 +72,6 @@ const CandidateDetails = () => {
 
   const generateAI = async () => {
     if (!id) return;
-    if (!isInInterviewProcess) {
-      alert('Candidate is not yet in the interview process. Please schedule at least one interview session first.');
-      return;
-    }
     setLoadingAi(true);
     setLoadingStepIndex(0);
 
@@ -199,7 +195,7 @@ const CandidateDetails = () => {
                   }
                 }}
               >
-                ✦ Generate AI Interview Summary
+              Generate AI Interview Summary
               </Button>
             </span>
           </Tooltip>
@@ -238,7 +234,7 @@ const CandidateDetails = () => {
                   }
                 }}
               >
-                {['APPLIED', 'SCREENING', 'INTERVIEW', 'SHORTLISTED', 'HIRED', 'REJECTED'].map(s => (
+                {['APPLIED', 'SCREENING', 'SHORTLISTED', 'INTERVIEW', 'HIRED', 'REJECTED'].map(s => (
                   <MenuItem key={s} value={s} sx={{ fontSize: '0.8rem' }}>
                     <Box display="flex" alignItems="center">
                       <span className={`status-dot status-dot-${s.toLowerCase()}`}></span>
@@ -329,27 +325,23 @@ const CandidateDetails = () => {
               </Typography>
             </Box>
 
-            <Tooltip title={!isInInterviewProcess ? 'Candidate is not yet in the interview process. Schedule an interview session first.' : ''}>
-              <span>
-                <Button
-                  variant="contained"
-                  size="small"
-                  startIcon={loadingAi ? <CircularProgress size={12} sx={{ color: '#ffffff' }} /> : <AiIcon sx={{ fontSize: 14 }} />}
-                  onClick={generateAI}
-                  disabled={loadingAi || !isInInterviewProcess}
-                  sx={{
-                    backgroundColor: isInInterviewProcess ? '#6366f1' : 'rgba(255, 255, 255, 0.05)',
-                    color: isInInterviewProcess ? '#ffffff' : '#626975',
-                    borderRadius: '6px',
-                    fontSize: '0.75rem',
-                    py: 0.4,
-                    '&:hover': { backgroundColor: isInInterviewProcess ? '#4f46e5' : 'rgba(255, 255, 255, 0.05)' }
-                  }}
-                >
-                  {loadingAi ? 'Analyzing...' : (aiEvaluation ? 'Regenerate AI Review' : 'Generate AI Review')}
-                </Button>
-              </span>
-            </Tooltip>
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={loadingAi ? <CircularProgress size={12} sx={{ color: '#ffffff' }} /> : <AiIcon sx={{ fontSize: 14 }} />}
+              onClick={generateAI}
+              disabled={loadingAi}
+              sx={{
+                backgroundColor: '#6366f1',
+                color: '#ffffff',
+                borderRadius: '6px',
+                fontSize: '0.75rem',
+                py: 0.4,
+                '&:hover': { backgroundColor: '#4f46e5' }
+              }}
+            >
+              {loadingAi ? 'Analyzing...' : (aiEvaluation ? 'Regenerate AI Review' : 'Generate AI Review')}
+            </Button>
           </Box>
 
           {loadingAi && (
@@ -365,83 +357,94 @@ const CandidateDetails = () => {
           )}
 
           {!aiEvaluation && !loadingAi && (
-            <Box textAlign="center" py={6} sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              {!isInInterviewProcess ? (
-                <>
-                  <Typography variant="caption" sx={{ color: '#626975', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', mb: 0.8 }}>
-                    🔒 Candidate Not in Interview Process
-                  </Typography>
-                  <Typography color="#969DAA" variant="body2" sx={{ maxWidth: 300, mx: 'auto', lineHeight: 1.5, fontSize: '0.8rem' }}>
-                    Schedule an interview session first to enable AI synthesis and reduce unnecessary AI calls.
-                  </Typography>
-                </>
-              ) : (
-                <>
-                  <Typography variant="caption" sx={{ color: '#818cf8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', mb: 0.8 }}>
-                    ✦ AI Resume Analysis Ready
-                  </Typography>
-                  <Typography color="#969DAA" variant="body2" sx={{ maxWidth: 280, mx: 'auto', lineHeight: 1.5, fontSize: '0.8rem' }}>
-                    Click 'Generate AI Review' to synthesize candidate scorecards and resume qualifications.
-                  </Typography>
-                </>
-              )}
+            <Box textAlign="center" py={6} sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+              <AiIcon sx={{ fontSize: 32, color: '#818cf8', mb: 1.5 }} />
+              <Typography variant="caption" sx={{ color: '#818cf8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', mb: 0.8 }}>
+                ✦ AI Resume Analysis Ready
+              </Typography>
+              <Typography color="#969DAA" variant="body2" sx={{ maxWidth: 300, mx: 'auto', lineHeight: 1.5, fontSize: '0.8rem', mb: 2 }}>
+                Click 'Generate AI Review' to synthesize candidate resume qualifications against job requirements.
+              </Typography>
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<AiIcon sx={{ fontSize: 14 }} />}
+                onClick={generateAI}
+                sx={{ backgroundColor: '#6366f1', borderRadius: '6px', fontSize: '0.78rem' }}
+              >
+                Generate AI Review
+              </Button>
             </Box>
           )}
 
           {aiEvaluation && !loadingAi && (
             <Box sx={{ overflowY: 'auto', flex: 1 }}>
-              <Box
-                p={1.5}
-                mb={2}
-                sx={{
-                  borderRadius: '6px',
-                  backgroundColor: aiEvaluation.recommendation.includes('YES') ? 'rgba(16, 185, 129, 0.1)' : 'rgba(244, 63, 94, 0.1)',
-                  border: aiEvaluation.recommendation.includes('YES') ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(244, 63, 94, 0.25)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }}
-              >
-                <Typography variant="caption" sx={{ color: '#969DAA', fontWeight: 600 }}>
-                  AI Recommendation
-                </Typography>
-                <Typography variant="subtitle2" fontWeight={700} sx={{ color: aiEvaluation.recommendation.includes('YES') ? '#10b981' : '#f43f5e' }} className="font-mono">
-                  ✦ {aiEvaluation.recommendation}
-                </Typography>
-              </Box>
+              {aiEvaluation.recommendation && (
+                <Box
+                  p={1.5}
+                  mb={2}
+                  sx={{
+                    borderRadius: '6px',
+                    backgroundColor: String(aiEvaluation.recommendation).includes('YES') ? 'rgba(16, 185, 129, 0.1)' : 'rgba(244, 63, 94, 0.1)',
+                    border: String(aiEvaluation.recommendation).includes('YES') ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(244, 63, 94, 0.25)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}
+                >
+                  <Typography variant="caption" sx={{ color: '#969DAA', fontWeight: 600 }}>
+                    AI Recommendation
+                  </Typography>
+                  <Typography variant="subtitle2" fontWeight={700} sx={{ color: String(aiEvaluation.recommendation).includes('YES') ? '#10b981' : '#f43f5e' }} className="font-mono">
+                    ✦ {aiEvaluation.recommendation}
+                  </Typography>
+                </Box>
+              )}
 
-              <Typography variant="caption" sx={{ color: '#626975', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.5, display: 'block' }}>
-                Executive Summary
-              </Typography>
-              <Typography variant="body2" sx={{ color: '#969DAA', lineHeight: 1.5, mb: 2, fontSize: '0.82rem' }}>
-                {aiEvaluation.summary}
-              </Typography>
+              {aiEvaluation.summary && (
+                <>
+                  <Typography variant="caption" sx={{ color: '#626975', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.5, display: 'block' }}>
+                    Executive Summary
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#969DAA', lineHeight: 1.5, mb: 2, fontSize: '0.82rem' }}>
+                    {aiEvaluation.summary}
+                  </Typography>
+                </>
+              )}
 
-              <Typography variant="caption" sx={{ color: '#626975', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.5, display: 'block' }}>
-                Evaluation Reasoning
-              </Typography>
-              <Typography variant="body2" sx={{ color: '#969DAA', lineHeight: 1.5, mb: 2, fontSize: '0.82rem' }}>
-                {aiEvaluation.reasoning}
-              </Typography>
+              {aiEvaluation.reasoning && (
+                <>
+                  <Typography variant="caption" sx={{ color: '#626975', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.5, display: 'block' }}>
+                    Evaluation Reasoning
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#969DAA', lineHeight: 1.5, mb: 2, fontSize: '0.82rem' }}>
+                    {aiEvaluation.reasoning}
+                  </Typography>
+                </>
+              )}
 
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="caption" fontWeight={600} sx={{ color: '#10b981', display: 'block', mb: 0.8 }}>
-                    ✓ Identified Strengths
-                  </Typography>
-                  <ul style={{ margin: 0, paddingLeft: '1.1rem', color: '#969DAA', fontSize: '0.78rem', lineHeight: 1.5 }}>
-                    {aiEvaluation.strengths.map((s: string, i: number) => <li key={i}>{s}</li>)}
-                  </ul>
-                </Grid>
+                {Array.isArray(aiEvaluation.strengths) && aiEvaluation.strengths.length > 0 && (
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="caption" fontWeight={600} sx={{ color: '#10b981', display: 'block', mb: 0.8 }}>
+                      ✓ Identified Strengths
+                    </Typography>
+                    <ul style={{ margin: 0, paddingLeft: '1.1rem', color: '#969DAA', fontSize: '0.78rem', lineHeight: 1.5 }}>
+                      {aiEvaluation.strengths.map((s: string, i: number) => <li key={i}>{s}</li>)}
+                    </ul>
+                  </Grid>
+                )}
 
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="caption" fontWeight={600} sx={{ color: '#f43f5e', display: 'block', mb: 0.8 }}>
-                    ⚠ Risk Areas & Gaps
-                  </Typography>
-                  <ul style={{ margin: 0, paddingLeft: '1.1rem', color: '#969DAA', fontSize: '0.78rem', lineHeight: 1.5 }}>
-                    {aiEvaluation.weaknesses.map((w: string, i: number) => <li key={i}>{w}</li>)}
-                  </ul>
-                </Grid>
+                {Array.isArray(aiEvaluation.weaknesses) && aiEvaluation.weaknesses.length > 0 && (
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="caption" fontWeight={600} sx={{ color: '#f43f5e', display: 'block', mb: 0.8 }}>
+                      ⚠ Risk Areas & Gaps
+                    </Typography>
+                    <ul style={{ margin: 0, paddingLeft: '1.1rem', color: '#969DAA', fontSize: '0.78rem', lineHeight: 1.5 }}>
+                      {aiEvaluation.weaknesses.map((w: string, i: number) => <li key={i}>{w}</li>)}
+                    </ul>
+                  </Grid>
+                )}
               </Grid>
             </Box>
           )}

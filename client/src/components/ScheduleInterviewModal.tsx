@@ -49,13 +49,15 @@ const ScheduleInterviewModal = ({ open, onClose, candidateId, defaultType = 'TEC
       try {
         const { data } = await apiClient.get('/auth/users');
         if (Array.isArray(data) && data.length > 0) {
-          setInterviewers(data);
-          if (!editingInterview) {
-            setValue('interviewerId', data[0].id);
+          const staffOnly = data.filter((u: any) => u.role !== 'CANDIDATE');
+          const list = staffOnly.length > 0 ? staffOnly : data;
+          setInterviewers(list);
+          if (!editingInterview && list.length > 0) {
+            setValue('interviewerId', list[0].id);
           }
         } else {
           const { data: me } = await apiClient.get('/auth/me');
-          setInterviewers([{ id: me.id, name: me.name }]);
+          setInterviewers([{ id: me.id, name: me.name, role: me.role }]);
           if (!editingInterview) {
             setValue('interviewerId', me.id);
           }
@@ -63,7 +65,7 @@ const ScheduleInterviewModal = ({ open, onClose, candidateId, defaultType = 'TEC
       } catch (err) {
         try {
           const { data: me } = await apiClient.get('/auth/me');
-          setInterviewers([{ id: me.id, name: me.name }]);
+          setInterviewers([{ id: me.id, name: me.name, role: me.role }]);
           if (!editingInterview) {
             setValue('interviewerId', me.id);
           }
@@ -101,6 +103,7 @@ const ScheduleInterviewModal = ({ open, onClose, candidateId, defaultType = 'TEC
         ...data,
         candidateId,
         scheduledAt: new Date(data.scheduledAt).toISOString(),
+        meetingLink: data.meetingLink?.trim() || undefined,
       };
 
       if (editingInterview) {
@@ -113,7 +116,8 @@ const ScheduleInterviewModal = ({ open, onClose, candidateId, defaultType = 'TEC
       onInterviewScheduled();
       onClose();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to process interview session');
+      const serverMsg = err.response?.data?.details?.[0]?.message || err.response?.data?.error || err.response?.data?.message;
+      setError(serverMsg || 'Failed to process interview session');
     }
   };
 

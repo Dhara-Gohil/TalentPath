@@ -13,7 +13,7 @@ export const createCandidateSchema = z.object({
 export const updateCandidateSchema = createCandidateSchema.partial();
 
 export const updateCandidateStatusSchema = z.object({
-  status: z.enum(['APPLIED', 'SCREENING', 'INTERVIEW', 'SHORTLISTED', 'REJECTED', 'HIRED']),
+  status: z.enum(['APPLIED', 'SCREENING', 'SHORTLISTED', 'INTERVIEW', 'REJECTED', 'HIRED']),
 });
 
 export type CreateCandidateInput = z.infer<typeof createCandidateSchema>;

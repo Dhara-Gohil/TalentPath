@@ -8,8 +8,8 @@ export const scheduleInterviewSchema = z.object({
   }),
   duration: z.number().min(15, 'Duration must be at least 15 minutes').max(240, 'Duration cannot exceed 240 minutes'),
   type: z.enum(['TECHNICAL', 'HR', 'MANAGERIAL', 'CULTURAL']),
-  meetingLink: z.string().url('Invalid meeting link URL').optional().or(z.literal('')),
-  notes: z.string().optional(),
+  meetingLink: z.string().url('Invalid meeting link URL').optional().nullable().or(z.literal('')),
+  notes: z.string().optional().nullable().or(z.literal('')),
 });
 
 export const updateInterviewSchema = scheduleInterviewSchema.partial();

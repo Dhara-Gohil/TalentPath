@@ -41,10 +41,6 @@ const ViewAiSummaryModal = ({ open, onClose, candidate, onEvaluationGenerated }:
 
   const handleGenerateAI = async () => {
     if (!candidate) return;
-    if (!isInInterviewProcess) {
-      setError('Candidate is not yet in the interview process. Please schedule at least one interview session first.');
-      return;
-    }
     setLoading(true);
     setError('');
     setLoadingStepIndex(0);
@@ -54,7 +50,7 @@ const ViewAiSummaryModal = ({ open, onClose, candidate, onEvaluationGenerated }:
     }, 1200);
 
     try {
-      const data = await aiService.evaluateCandidate(candidate.id);
+      const data = await aiService.evaluateInterviews(candidate.id);
       setEvaluation(data);
       if (onEvaluationGenerated) onEvaluationGenerated();
     } catch (err: any) {
@@ -93,7 +89,7 @@ const ViewAiSummaryModal = ({ open, onClose, candidate, onEvaluationGenerated }:
           </Box>
           <Box>
             <Typography variant="subtitle1" fontWeight={600} sx={{ color: '#F5F7FA', lineHeight: 1.2 }}>
-              ✦ Interview Process AI Summary
+              Interview Process AI Summary
             </Typography>
             <Typography variant="caption" sx={{ color: '#626975', fontSize: '0.72rem' }}>
               Synthesized from scorecards across the 4 interview steps
@@ -152,30 +148,17 @@ const ViewAiSummaryModal = ({ open, onClose, candidate, onEvaluationGenerated }:
         {!evaluation && !loading && (
           <Box textAlign="center" py={6}>
             <AiIcon sx={{ fontSize: 36, color: '#626975', mb: 1.5 }} />
-            {!isInInterviewProcess ? (
-              <>
-                <Typography variant="body2" color="#F5F7FA" fontWeight={600} mb={0.5}>
-                  Candidate is not in the interview process
-                </Typography>
-                <Typography variant="caption" sx={{ color: '#626975', display: 'block', maxWidth: 320, mx: 'auto' }}>
-                  Please schedule at least one interview round first to enable AI synthesis and avoid unnecessary AI token consumption.
-                </Typography>
-              </>
-            ) : (
-              <>
-                <Typography variant="body2" color="#969DAA" mb={1.5}>
-                  No interview process summary generated yet for {candidate.name}.
-                </Typography>
-                <Button
-                  variant="contained"
-                  startIcon={<AiIcon sx={{ fontSize: 14 }} />}
-                  onClick={handleGenerateAI}
-                  sx={{ backgroundColor: '#6366f1', borderRadius: '6px', fontSize: '0.78rem' }}
-                >
-                  Generate AI Interview Process Summary
-                </Button>
-              </>
-            )}
+            <Typography variant="body2" color="#969DAA" mb={1.5}>
+              No AI evaluation summary generated yet for {candidate.name}.
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<AiIcon sx={{ fontSize: 14 }} />}
+              onClick={handleGenerateAI}
+              sx={{ backgroundColor: '#6366f1', borderRadius: '6px', fontSize: '0.78rem' }}
+            >
+              Generate AI Summary
+            </Button>
           </Box>
         )}
 

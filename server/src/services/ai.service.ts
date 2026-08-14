@@ -48,6 +48,20 @@ export interface StructuredAiEvaluation {
   reasoning: string;
 }
 
+export interface StructuredInterviewSummary {
+  summary: string;
+  recommendation: 'STRONG_YES' | 'YES' | 'MAYBE' | 'NO' | 'STRONG_NO';
+  reasoning: string;
+  strengths: string[];
+  weaknesses: string[];
+  roundAnalysis?: {
+    technical?: string;
+    hr?: string;
+    managerial?: string;
+    cultural?: string;
+  };
+}
+
 export interface StructuredCandidateProfileSummary {
   executiveSummary: string;
   coreCompetencies: string[];
@@ -65,47 +79,33 @@ export interface JobMatchItem {
 }
 
 export const aiService = {
-  async generateEvaluation(
+  // 1. AI Intelligence Evaluation from Candidate Resume Text & Profile
+  async generateResumeEvaluation(
     candidate: CandidateContext,
-    job: JobContext,
-    feedbacks: FeedbackContext[]
+    job: JobContext
   ): Promise<StructuredAiEvaluation> {
     const prompt = `
-      You are an expert technical recruiter evaluating a candidate for a job.
+      You are an expert technical recruiter evaluating a candidate's background and resume against job requirements.
       
-      JOB DETAILS:
+      JOB REQUISITION:
       Title: ${job.title}
       Description: ${job.description}
       Required Skills: ${job.requiredSkills}
       
-      CANDIDATE DETAILS:
-      Resume: ${candidate.resumeText}
+      CANDIDATE PROFILE & RESUME:
+      Resume / Bio: ${candidate.resumeText}
       Skills: ${candidate.skills}
       Years of Experience: ${candidate.experienceYears}
       
-      INTERVIEW FEEDBACKS:
-      ${feedbacks
-        .map(
-          (f, i) => `
-        Interview ${i + 1}:
-        Tech Rating: ${f.technicalRating}/10, Comm Rating: ${f.communicationRating}/10
-        Problem Solving: ${f.problemSolvingRating}/10, Culture Fit: ${f.cultureFitRating}/10
-        Strengths: ${f.strengths || 'N/A'}, Weaknesses: ${f.weaknesses || 'N/A'}
-        Comments: ${f.comments}
-        Recommendation: ${f.recommendation || 'N/A'}
-      `
-        )
-        .join('\n')}
-      
-      Based on the above information, provide a structured evaluation in JSON format exactly matching this schema:
+      Based STRICTLY on the candidate's resume text and background compared against job requirements, provide a structured JSON evaluation matching this schema:
       {
-        "summary": "Overall summary of the candidate's fit",
-        "strengths": ["strength 1", "strength 2"],
-        "weaknesses": ["weakness 1", "weakness 2"],
-        "skillMatch": ["skill 1", "skill 2"],
-        "missingSkills": ["missing 1", "missing 2"],
-        "recommendation": "YES or NO or MAYBE or STRONG_YES or STRONG_NO",
-        "reasoning": "Detailed reasoning for the recommendation"
+        "summary": "Executive summary of candidate's qualifications and fit derived from resume text",
+        "strengths": ["Identified strength 1 from resume", "Identified strength 2 from resume"],
+        "weaknesses": ["Identified risk/gap 1 from resume", "Identified risk/gap 2 from resume"],
+        "skillMatch": ["Matching skill 1", "Matching skill 2"],
+        "missingSkills": ["Missing/Required skill 1"],
+        "recommendation": "STRONG_YES or YES or MAYBE or NO or STRONG_NO",
+        "reasoning": "Detailed reasoning explaining initial resume fit and qualification alignment"
       }
     `;
 
@@ -113,7 +113,7 @@ export const aiService = {
       const response = await openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
         messages: [
-          { role: 'system', content: 'You are a technical recruiter. Respond ONLY with valid JSON.' },
+          { role: 'system', content: 'You are a technical recruiter evaluating candidate resumes. Respond ONLY with valid JSON.' },
           { role: 'user', content: prompt },
         ],
         response_format: { type: 'json_object' },
@@ -121,18 +121,127 @@ export const aiService = {
 
       const content = response.choices[0]?.message?.content;
       if (!content) {
-        throw { statusCode: 502, message: 'Invalid response payload received from AI service' };
+        throw { statusCode: 502, message: 'Invalid response payload received from AI resume evaluation service' };
       }
 
       return JSON.parse(content) as StructuredAiEvaluation;
     } catch (error: any) {
       if (error.statusCode) throw error;
       if (error.name === 'APIConnectionTimeoutError' || error.message?.includes('timeout')) {
-        throw { statusCode: 504, message: 'AI evaluation service timed out. Please try again later.' };
+        throw { statusCode: 504, message: 'AI resume evaluation service timed out.' };
       }
-      console.error('AI Service Error:', error);
-      throw { statusCode: 502, message: 'Failed to communicate with AI evaluation service' };
+      console.error('AI Service Error (Resume Evaluation):', error);
+      throw { statusCode: 502, message: 'Failed to generate AI resume evaluation' };
     }
+  },
+
+  // 2. Interview Process AI Summary Synthesized from Interviewer Scorecards
+  async generateInterviewSummary(
+    candidate: CandidateContext,
+    job: JobContext,
+    feedbacks: FeedbackContext[],
+    roundInterviews?: RoundInterviewData[]
+  ): Promise<StructuredInterviewSummary> {
+    const prompt = `
+      You are an executive talent strategist synthesizing 4-round interview scorecards and interviewer evaluations.
+      
+      TARGET JOB:
+      Title: ${job.title}
+      
+      CANDIDATE:
+      Skills: ${candidate.skills}
+      Experience: ${candidate.experienceYears} Years
+      
+      SUBMITTED INTERVIEW SCORECARDS & NOTES:
+      ${
+        roundInterviews && roundInterviews.length > 0
+          ? roundInterviews
+              .map(
+                (r, i) => `
+        Round ${i + 1} [${r.roundType}] (Interviewer: ${r.interviewerName}):
+        ${
+          r.feedback && r.feedback.length > 0
+            ? r.feedback
+                .map(
+                  (f) => `
+          - Scorecard Ratings: Tech ${f.technicalRating}/10, Comm ${f.communicationRating}/10, ProblemSolving ${f.problemSolvingRating}/10, Culture ${f.cultureFitRating}/10
+          - Verified Strengths: ${f.strengths || 'N/A'}
+          - Risk Areas / Red Flags: ${f.weaknesses || 'N/A'}
+          - Notes / Comments: ${f.comments || 'N/A'}
+          - Recommendation: ${f.recommendation || 'N/A'}
+        `
+                )
+                .join('')
+            : '  - No scorecard submitted yet for this round.'
+        }
+      `
+              )
+              .join('\n')
+          : feedbacks && feedbacks.length > 0
+          ? feedbacks
+              .map(
+                (f, i) => `
+        Interview Scorecard ${i + 1}:
+        Ratings: Tech ${f.technicalRating}/10, Comm ${f.communicationRating}/10, ProblemSolving ${f.problemSolvingRating}/10, Culture ${f.cultureFitRating}/10
+        Strengths: ${f.strengths || 'N/A'}, Risk Areas: ${f.weaknesses || 'N/A'}
+        Comments: ${f.comments || 'N/A'}
+        Recommendation: ${f.recommendation || 'N/A'}
+      `
+              )
+              .join('\n')
+          : 'No interview scorecards submitted yet across interview rounds.'
+      }
+      
+      Synthesize the submitted scorecards across the interview rounds into JSON format matching this schema:
+      {
+        "summary": "Executive interview process summary synthesizing interviewer scorecards across rounds",
+        "recommendation": "STRONG_YES or YES or MAYBE or NO or STRONG_NO",
+        "reasoning": "Detailed synthesis of interviewer ratings, comments, and scorecard recommendations",
+        "strengths": ["Interviewer verified strength 1", "Interviewer verified strength 2"],
+        "weaknesses": ["Interviewer red flag / risk area 1", "Interviewer red flag / risk area 2"],
+        "roundAnalysis": {
+          "technical": "Takeaway summary from Technical round scorecard, or 'Pending evaluation' if no scorecard submitted yet",
+          "hr": "Takeaway summary from HR & Screening round scorecard, or 'Pending evaluation' if no scorecard submitted yet",
+          "managerial": "Takeaway summary from Managerial round scorecard, or 'Pending evaluation' if no scorecard submitted yet",
+          "cultural": "Takeaway summary from Cultural Fit round scorecard, or 'Pending evaluation' if no scorecard submitted yet"
+        }
+      }
+    `;
+
+    try {
+      const response = await openai.chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          { role: 'system', content: 'You are an executive talent strategist synthesizing interview scorecards. Respond ONLY with valid JSON.' },
+          { role: 'user', content: prompt },
+        ],
+        response_format: { type: 'json_object' },
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw { statusCode: 502, message: 'Invalid response payload received from AI interview synthesis service' };
+      }
+
+      return JSON.parse(content) as StructuredInterviewSummary;
+    } catch (error: any) {
+      if (error.statusCode) throw error;
+      if (error.name === 'APIConnectionTimeoutError' || error.message?.includes('timeout')) {
+        throw { statusCode: 504, message: 'AI interview synthesis service timed out.' };
+      }
+      console.error('AI Service Error (Interview Summary):', error);
+      throw { statusCode: 502, message: 'Failed to generate AI interview process summary' };
+    }
+  },
+
+  // Legacy wrapper mapping generateEvaluation -> generateResumeEvaluation
+  async generateEvaluation(
+    candidate: CandidateContext,
+    job: JobContext,
+    feedbacks: FeedbackContext[],
+    roundInterviews?: RoundInterviewData[]
+  ): Promise<StructuredAiEvaluation> {
+    return this.generateResumeEvaluation(candidate, job);
   },
 
   async generateCandidateProfileSummary(candidate: {

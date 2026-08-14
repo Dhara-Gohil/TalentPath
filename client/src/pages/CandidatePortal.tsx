@@ -18,7 +18,7 @@ import { candidateService } from '../api/candidate.service';
 import type { CandidateProfile, CandidateProfileSummary, SuitableJobItem, MyCandidateApplication, CandidateStatus } from '../api/types';
 import { candidateStatusColor } from '../theme/statusColors';
 
-const PIPELINE_STAGES: CandidateStatus[] = ['APPLIED', 'SCREENING', 'INTERVIEW', 'SHORTLISTED', 'HIRED'];
+const PIPELINE_STAGES: CandidateStatus[] = ['APPLIED', 'SCREENING', 'SHORTLISTED', 'INTERVIEW', 'HIRED'];
 
 const getPipelineStepIndex = (status: CandidateStatus): number => {
   if (status === 'REJECTED') return -1;

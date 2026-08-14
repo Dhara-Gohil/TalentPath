@@ -148,41 +148,37 @@ export const candidateService = {
   async assembleCandidateAiContext(candidateId: string) {
     const candidate = await this.getCandidateById(candidateId);
 
+    const feedbacks = candidate.interviews
+      ? candidate.interviews.flatMap((inv) =>
+          inv.feedback.map((f) => ({
+            technicalRating: f.technicalRating,
+            communicationRating: f.communicationRating,
+            problemSolvingRating: f.problemSolvingRating,
+            cultureFitRating: f.cultureFitRating,
+            comments: f.comments,
+            strengths: f.strengths,
+            weaknesses: f.weaknesses,
+            recommendation: f.recommendation,
+          }))
+        )
+      : [];
 
-    if (!candidate.interviews || candidate.interviews.length === 0) {
-      throw {
-        statusCode: 400,
-        message: 'Candidate is not yet in the interview process. Please schedule at least one interview session before generating AI evaluation.',
-      };
-    }
-
-    const feedbacks = candidate.interviews.flatMap((inv) =>
-      inv.feedback.map((f) => ({
-        technicalRating: f.technicalRating,
-        communicationRating: f.communicationRating,
-        problemSolvingRating: f.problemSolvingRating,
-        cultureFitRating: f.cultureFitRating,
-        comments: f.comments,
-        strengths: f.strengths,
-        weaknesses: f.weaknesses,
-        recommendation: f.recommendation,
-      }))
-    );
-
-    const roundInterviews = candidate.interviews.map((inv) => ({
-      roundType: inv.type,
-      interviewerName: inv.interviewer?.name || 'Assigned Interviewer',
-      feedback: inv.feedback.map((f) => ({
-        technicalRating: f.technicalRating,
-        communicationRating: f.communicationRating,
-        problemSolvingRating: f.problemSolvingRating,
-        cultureFitRating: f.cultureFitRating,
-        strengths: f.strengths || '',
-        weaknesses: f.weaknesses || '',
-        comments: f.comments,
-        recommendation: f.recommendation,
-      })),
-    }));
+    const roundInterviews = candidate.interviews
+      ? candidate.interviews.map((inv) => ({
+          roundType: inv.type,
+          interviewerName: inv.interviewer?.name || 'Assigned Interviewer',
+          feedback: inv.feedback.map((f) => ({
+            technicalRating: f.technicalRating,
+            communicationRating: f.communicationRating,
+            problemSolvingRating: f.problemSolvingRating,
+            cultureFitRating: f.cultureFitRating,
+            strengths: f.strengths || '',
+            weaknesses: f.weaknesses || '',
+            comments: f.comments,
+            recommendation: f.recommendation,
+          })),
+        }))
+      : [];
 
     return {
       candidate: {
