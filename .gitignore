@@ -1,45 +1,26 @@
 # Dependencies
-node_modules/
-client/node_modules/
-server/node_modules/
+node_modules/*
+**/node_modules/
 
-# Build outputs
+# Production builds
 dist/
-client/dist/
-server/dist/
+**/dist/
 build/
+**/build/
 
-# Environment files & Secrets
+# Environment files
 .env
-.env.*
-!.env.example
-client/.env
-client/.env.*
-!client/.env.example
-server/.env
-server/.env.*
-!server/.env.example
+.env.local
+.env.*.local
+**/.env
+**/.env.local
 
-# SQLite Database & Local Data
+# SQLite databases (legacy)
 *.db
 *.db-journal
-*.sqlite
-*.sqlite3
-dev.db
 server/prisma/dev.db
-server/dev.db
-data/
 
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# System & IDE files
+# System / IDE files
 .DS_Store
-Thumbs.db
-.idea/
 .vscode/
+.idea/
