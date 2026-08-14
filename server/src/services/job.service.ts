@@ -13,59 +13,38 @@ export interface JobQueryFilters {
 export const jobService = {
   async getJobs(filters: JobQueryFilters) {
     const { status, department, search, page = '1', limit = '10', all } = filters;
-    const pageNum = Math.max(1, parseInt(page as string) || 1);
-    const limitNum = Math.max(1, parseInt(limit as string) || 10);
+    const pageNum = parseInt(page as string) || 1;
+    const limitNum = parseInt(limit as string) || 10;
     const isAll = all === 'true';
 
     const whereClause: any = {};
-    if (status && status !== 'all' && status.trim()) whereClause.status = status.trim();
-    if (department && department !== 'all' && department.trim()) whereClause.department = department.trim();
-    if (search && search.trim()) {
-      const queryStr = search.trim();
+    if (status) whereClause.status = status;
+    if (department) whereClause.department = department;
+    if (search) {
       whereClause.OR = [
-        { title: { contains: queryStr, mode: 'insensitive' } },
-        { description: { contains: queryStr, mode: 'insensitive' } },
+        { title: { contains: search as string } },
+        { description: { contains: search as string } },
       ];
     }
 
-    try {
-      const [data, total] = await Promise.all([
-        prisma.job.findMany({
-          where: whereClause,
-          orderBy: { createdAt: 'desc' },
-          ...(isAll ? {} : { skip: (pageNum - 1) * limitNum, take: limitNum }),
-        }),
-        prisma.job.count({ where: whereClause }),
-      ]);
-
-      const totalPages = isAll ? 1 : Math.ceil(total / limitNum) || 1;
-
-      return {
-        data: data || [],
-        total: total || 0,
-        page: pageNum,
-        pageSize: isAll ? (total || 10) : limitNum,
-        totalPages,
-      };
-    } catch (err: any) {
-      console.error('Prisma query error in getJobs:', err?.message || err);
-      // Fallback matching without case-insensitive mode if fails
-      const fallbackWhere: any = {};
-      if (status && status !== 'all' && status.trim()) fallbackWhere.status = status.trim();
-      
-      const data = await prisma.job.findMany({
-        where: fallbackWhere,
+    const [data, total] = await Promise.all([
+      prisma.job.findMany({
+        where: whereClause,
         orderBy: { createdAt: 'desc' },
-      });
+        ...(isAll ? {} : { skip: (pageNum - 1) * limitNum, take: limitNum }),
+      }),
+      prisma.job.count({ where: whereClause }),
+    ]);
 
-      return {
-        data: data || [],
-        total: data?.length || 0,
-        page: 1,
-        pageSize: data?.length || 10,
-        totalPages: 1,
-      };
-    }
+    const totalPages = isAll ? 1 : Math.ceil(total / limitNum) || 1;
+
+    return {
+      data,
+      total,
+      page: pageNum,
+      pageSize: limitNum,
+      totalPages,
+    };
   },
 
   async getJobById(id: string) {
