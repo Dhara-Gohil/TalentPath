@@ -14,6 +14,8 @@ import FeedbackModal from '../components/FeedbackModal';
 import InterviewTracePipeline from '../components/InterviewTracePipeline';
 import ViewScorecardModal from '../components/ViewScorecardModal';
 import ViewAiSummaryModal from '../components/ViewAiSummaryModal';
+import { renderFormattedText } from '../utils/textFormatter';
+import { showToast } from '../utils/toast';
 import type { CandidateStatus } from '../api/types';
 
 const CandidateDetails = () => {
@@ -41,10 +43,10 @@ const CandidateDetails = () => {
   const [aiProcessModalOpen, setAiProcessModalOpen] = useState(false);
 
   const loadingSteps = [
-    '✦ Extracting resume metadata...',
-    '✦ Cross-referencing job requirements...',
-    '✦ Synthesizing interviewer scorecards...',
-    '✦ Formulating final hiring recommendation...'
+    'Extracting resume metadata...',
+    'Cross-referencing job requirements...',
+    'Synthesizing interviewer scorecards...',
+    'Formulating final hiring recommendation...'
   ];
 
   const fetchCandidate = async () => {
@@ -59,6 +61,7 @@ const CandidateDetails = () => {
       }
     } catch (error) {
       console.error('Failed to fetch candidate', error);
+      showToast.apiError(error, 'Failed to load candidate details');
     } finally {
       setLoading(false);
     }
@@ -68,7 +71,7 @@ const CandidateDetails = () => {
     fetchCandidate();
   }, [id]);
 
-  const isInInterviewProcess = Boolean(candidate?.interviews && candidate.interviews.length > 0);
+  const isInInterviewProcess = Boolean((candidate?.interviews && candidate.interviews.length > 0) || candidate?.status === 'INTERVIEW' || candidate?.status === 'SHORTLISTED' || candidate?.status === 'HIRED');
 
   const generateAI = async () => {
     if (!id) return;
@@ -82,10 +85,11 @@ const CandidateDetails = () => {
     try {
       const data = await aiService.evaluateCandidate(id);
       setAiEvaluation(data);
+      showToast.success('AI Evaluation synthesized successfully!');
       fetchCandidate();
     } catch (error: any) {
       console.error('AI generation failed', error);
-      alert(error.response?.data?.error || error.message || 'Failed to generate AI evaluation');
+      showToast.apiError(error, 'Failed to generate AI evaluation');
     } finally {
       clearInterval(interval);
       setLoadingAi(false);
@@ -94,20 +98,23 @@ const CandidateDetails = () => {
 
   const handleStatusChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!id) return;
+    const newStatus = e.target.value as CandidateStatus;
     try {
-      await candidateService.updateCandidateStatus(id, e.target.value as CandidateStatus);
+      await candidateService.updateCandidateStatus(id, newStatus);
+      showToast.success(`Candidate status updated to ${newStatus.replace('_', ' ')}`);
       fetchCandidate();
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to update status');
+      showToast.apiError(error, 'Failed to update status');
     }
   };
 
   const markInterviewCompleted = async (interviewId: string) => {
     try {
       await interviewService.updateInterviewStatus(interviewId, 'COMPLETED');
+      showToast.success('Interview marked as completed');
       fetchCandidate();
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to mark interview as completed');
+      showToast.apiError(error, 'Failed to mark interview as completed');
     }
   };
 
@@ -147,7 +154,7 @@ const CandidateDetails = () => {
         <Box display="flex" alignItems="center" gap={2}>
           <Button
             startIcon={<ArrowBackIcon sx={{ fontSize: 16 }} />}
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/candidates')}
             sx={{ color: '#969DAA', '&:hover': { color: '#F5F7FA' }, py: 0.5 }}
             size="small"
           >
@@ -173,6 +180,7 @@ const CandidateDetails = () => {
 
         {/* Action Controls & Pipeline Stage Select */}
         <Box display="flex" alignItems="center" gap={2}>
+
           <Tooltip title={!isInInterviewProcess ? 'Candidate is not yet in the interview process. Schedule an interview session first.' : ''}>
             <span>
               <Button
@@ -280,9 +288,7 @@ const CandidateDetails = () => {
             Extracted Resume Profile
           </Typography>
           <Paper elevation={0} sx={{ p: 2, bgcolor: '#0B0D10', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '6px', mb: 2, flex: 1, overflowY: 'auto' }}>
-            <Typography variant="body2" sx={{ color: '#969DAA', whiteSpace: 'pre-wrap', lineHeight: 1.5, fontSize: '0.82rem' }}>
-              {candidate.resumeText}
-            </Typography>
+            {renderFormattedText(candidate.resumeText)}
           </Paper>
 
           <Typography variant="caption" sx={{ color: '#626975', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', mb: 1, display: 'block' }}>
@@ -360,7 +366,7 @@ const CandidateDetails = () => {
             <Box textAlign="center" py={6} sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
               <AiIcon sx={{ fontSize: 32, color: '#818cf8', mb: 1.5 }} />
               <Typography variant="caption" sx={{ color: '#818cf8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', mb: 0.8 }}>
-                ✦ AI Resume Analysis Ready
+                AI Resume Analysis Ready
               </Typography>
               <Typography color="#969DAA" variant="body2" sx={{ maxWidth: 300, mx: 'auto', lineHeight: 1.5, fontSize: '0.8rem', mb: 2 }}>
                 Click 'Generate AI Review' to synthesize candidate resume qualifications against job requirements.
@@ -396,7 +402,7 @@ const CandidateDetails = () => {
                     AI Recommendation
                   </Typography>
                   <Typography variant="subtitle2" fontWeight={700} sx={{ color: String(aiEvaluation.recommendation).includes('YES') ? '#10b981' : '#f43f5e' }} className="font-mono">
-                    ✦ {aiEvaluation.recommendation}
+                    {aiEvaluation.recommendation}
                   </Typography>
                 </Box>
               )}

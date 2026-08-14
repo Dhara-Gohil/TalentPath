@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Box, Typography, Button, Chip, Paper, IconButton, Tooltip } from '@mui/material';
 import {
   CheckCircle as CheckIcon,
@@ -9,9 +10,11 @@ import {
   RateReviewOutlined as CommentIcon,
   OpenInNew as LinkIcon,
   ChevronRight as ChevronIcon,
-  VisibilityOutlined as ViewIcon
+  VisibilityOutlined as ViewIcon,
+  AutoAwesome as AiIcon
 } from '@mui/icons-material';
 import apiClient from '../api/client';
+import { interviewService } from '../api/interview.service';
 import { useAuth } from '../contexts/AuthContext';
 
 export interface RoundDef {
@@ -47,6 +50,7 @@ const InterviewTracePipeline = ({
   onMarkCompleted,
   onRefresh
 }: Props) => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const isInterviewer = user?.role === 'INTERVIEWER';
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -88,6 +92,15 @@ const InterviewTracePipeline = ({
     }
   };
 
+  const handleStartCopilot = async (interviewId: string) => {
+    try {
+      await interviewService.updateInterviewStatus(interviewId, 'IN_PROGRESS');
+    } catch (err) {
+      console.error('Failed to update interview status to IN_PROGRESS', err);
+    }
+    navigate(`/interviews/${interviewId}/copilot`);
+  };
+
   const isRoundCompleted = (type: string) => {
     const existing = interviews.find(i => i.type === type);
     return existing && existing.status === 'COMPLETED' && existing.feedback && existing.feedback.length > 0;
@@ -96,6 +109,7 @@ const InterviewTracePipeline = ({
   const activeRoundDef = ROUNDS[selectedStepIndex] || ROUNDS[0];
   const activeInterview = interviews.find(i => i.type === activeRoundDef.type);
   const previousCompleted = selectedStepIndex === 0 || isRoundCompleted(ROUNDS[selectedStepIndex - 1].type);
+  const isAdminOrRecruiter = user?.role === 'ADMIN' || user?.role === 'RECRUITER';
 
   const isAssignedToMe = activeInterview && (activeInterview.interviewerId === user?.id || activeInterview.interviewer?.id === user?.id);
   const isOtherInterviewer = isInterviewer && activeInterview && !isAssignedToMe;
@@ -120,8 +134,8 @@ const InterviewTracePipeline = ({
           const isCompletedPending = interview && interview.status === 'COMPLETED' && (!interview.feedback || interview.feedback.length === 0);
           const isScheduled = interview && interview.status === 'SCHEDULED';
           const isPrevDone = idx === 0 || isRoundCompleted(ROUNDS[idx - 1].type);
-          const isSchedulable = !interview && isPrevDone;
-          const isLocked = !interview && !isPrevDone;
+          const isSchedulable = !interview && (isPrevDone || isAdminOrRecruiter);
+          const isLocked = !interview && !isPrevDone && !isAdminOrRecruiter;
 
           const isSelected = selectedStepIndex === idx;
 
@@ -192,7 +206,7 @@ const InterviewTracePipeline = ({
                     {round.title}
                   </Typography>
                   <Typography variant="caption" noWrap sx={{ color: isCompleted ? '#10b981' : isScheduled ? '#818cf8' : isCompletedPending ? '#f59e0b' : '#626975', fontSize: '0.68rem', fontWeight: 500, display: 'block' }}>
-                    {isCompleted ? '✓ Scorecard Verified' : isCompletedPending ? '⚠ Pending Scorecard' : isScheduled ? '⏱ Session Set' : isSchedulable ? '✦ Schedulable' : '🔒 Locked'}
+                    {isCompleted ? 'Scorecard Verified' : isCompletedPending ? 'Pending Scorecard' : isScheduled ? 'Session Set' : isSchedulable ? 'Schedulable' : 'Locked'}
                   </Typography>
                 </Box>
               </Paper>
@@ -237,8 +251,8 @@ const InterviewTracePipeline = ({
 
           {/* Contextual Trace Point Actions */}
           <Box display="flex" alignItems="center" gap={1}>
-            {/* Scheduled State Actions */}
-            {activeInterview && activeInterview.status === 'SCHEDULED' && (
+            {/* Scheduled / In-Progress State Actions */}
+            {activeInterview && (activeInterview.status === 'SCHEDULED' || activeInterview.status === 'RESCHEDULED' || activeInterview.status === 'IN_PROGRESS') && (
               isOtherInterviewer ? (
                 <Chip
                   size="small"
@@ -260,6 +274,28 @@ const InterviewTracePipeline = ({
                       </IconButton>
                     </Tooltip>
                   )}
+
+                  <Button
+                    size="small"
+                    variant="contained"
+                    startIcon={<AiIcon sx={{ fontSize: 14 }} />}
+                    onClick={() => handleStartCopilot(activeInterview.id)}
+                    sx={{
+                      background: 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
+                      color: '#ffffff',
+                      fontWeight: 700,
+                      fontSize: '0.75rem',
+                      borderRadius: '6px',
+                      py: 0.3,
+                      px: 1.5,
+                      boxShadow: '0 2px 10px rgba(99, 102, 241, 0.3)',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #4f46e5 0%, #0891b2 100%)'
+                      }
+                    }}
+                  >
+                    {activeInterview.status === 'IN_PROGRESS' ? 'Join Active Copilot' : 'Start AI Copilot'}
+                  </Button>
 
                   <Button
                     size="small"
@@ -309,7 +345,7 @@ const InterviewTracePipeline = ({
             )}
 
             {/* Schedulable Trace Point Action */}
-            {!activeInterview && previousCompleted && (
+            {!activeInterview && (previousCompleted || isAdminOrRecruiter) && (
               isInterviewer ? (
                 <Chip
                   size="small"
@@ -330,7 +366,7 @@ const InterviewTracePipeline = ({
             )}
 
             {/* Locked Notice */}
-            {!activeInterview && !previousCompleted && (
+            {!activeInterview && !previousCompleted && !isAdminOrRecruiter && (
               <Chip
                 size="small"
                 icon={<LockIcon sx={{ fontSize: '13px !important', color: '#626975 !important' }} />}

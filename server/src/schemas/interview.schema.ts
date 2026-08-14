@@ -15,7 +15,7 @@ export const scheduleInterviewSchema = z.object({
 export const updateInterviewSchema = scheduleInterviewSchema.partial();
 
 export const updateInterviewStatusSchema = z.object({
-  status: z.enum(['SCHEDULED', 'COMPLETED', 'CANCELLED', 'RESCHEDULED']),
+  status: z.enum(['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'RESCHEDULED']),
 });
 
 export type ScheduleInterviewInput = z.infer<typeof scheduleInterviewSchema>;

@@ -115,14 +115,14 @@ export const candidateService = {
     });
   },
 
-  async updateCandidateStatus(id: string, newStatus: CandidateStatus) {
+  async updateCandidateStatus(id: string, newStatus: CandidateStatus, userRole?: string) {
     const current = await prisma.candidate.findUnique({ where: { id } });
     if (!current) {
       throw { statusCode: 404, message: 'Candidate not found' };
     }
 
     const currentStatus = current.status as CandidateStatus;
-    if (!isValidCandidateTransition(currentStatus, newStatus)) {
+    if (!isValidCandidateTransition(currentStatus, newStatus, userRole)) {
       throw {
         statusCode: 409,
         message: `Invalid candidate status transition from '${currentStatus}' to '${newStatus}'`,

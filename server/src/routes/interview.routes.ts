@@ -1,5 +1,16 @@
 import { Router } from 'express';
-import { scheduleInterview, updateInterview, updateStatus, getInterviews, getInterviewById, submitFeedback, deleteInterview } from '../controllers/interview.controller';
+import {
+  scheduleInterview,
+  updateInterview,
+  updateStatus,
+  getInterviews,
+  getInterviewById,
+  submitFeedback,
+  deleteInterview,
+  saveTranscript,
+  analyzeCopilot,
+  generateCopilotFeedback
+} from '../controllers/interview.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -11,6 +22,9 @@ router.get('/:id', getInterviewById as any);
 router.post('/', scheduleInterview as any);
 router.put('/:id', updateInterview as any);
 router.patch('/:id/status', updateStatus as any);
+router.put('/:id/transcript', saveTranscript as any);
+router.post('/:id/copilot/analyze', analyzeCopilot as any);
+router.post('/:id/copilot/generate-feedback', generateCopilotFeedback as any);
 router.post('/:interviewId/feedback', submitFeedback as any);
 router.delete('/:id', deleteInterview as any);
 

@@ -89,6 +89,7 @@ model Interview {
   status        String   @default("SCHEDULED") // SCHEDULED, COMPLETED, CANCELLED, RESCHEDULED
   meetingLink   String?
   notes         String?
+  transcript    String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

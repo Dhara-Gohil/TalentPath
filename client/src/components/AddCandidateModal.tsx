@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { Drawer, Box, Typography, IconButton, Button, TextField, MenuItem, Grid, Alert, Divider } from '@mui/material';
 import { Close as CloseIcon, PersonAddOutlined as AddIcon } from '@mui/icons-material';
 import apiClient from '../api/client';
+import { showToast } from '../utils/toast';
 
 const candidateSchema = z.object({
   name: z.string().min(2, 'Name is required'),
@@ -48,11 +49,14 @@ const AddCandidateModal = ({ open, onClose, jobId, onCandidateAdded }: Props) =>
   const onSubmit = async (data: CandidateForm) => {
     try {
       await apiClient.post('/candidates', data);
+      showToast.success(`Candidate ${data.name} added successfully!`);
       reset();
       onCandidateAdded();
       onClose();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to add candidate');
+      const errorMsg = err.response?.data?.message || err.response?.data?.error || 'Failed to add candidate';
+      setError(errorMsg);
+      showToast.apiError(err, 'Failed to add candidate');
     }
   };
 

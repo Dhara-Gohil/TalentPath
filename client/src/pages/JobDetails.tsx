@@ -15,7 +15,9 @@ import {
 import apiClient from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 import AddCandidateModal from '../components/AddCandidateModal';
-import CreateJobModal, { renderFormattedText } from '../components/CreateJobModal';
+import CreateJobModal from '../components/CreateJobModal';
+import { renderFormattedText } from '../utils/textFormatter';
+import { showToast } from '../utils/toast';
 
 const JobDetails = () => {
   const { id } = useParams();
@@ -47,9 +49,10 @@ const JobDetails = () => {
   const handleToggleStatus = async (newStatus: string) => {
     try {
       await apiClient.put(`/jobs/${id}`, { status: newStatus });
+      showToast.success(`Job position ${newStatus === 'CLOSED' ? 'closed' : 'reopened'} successfully`);
       fetchJob();
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to update job status');
+      showToast.apiError(error, 'Failed to update job status');
     }
   };
 

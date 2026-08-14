@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Card, Grid, TextField, Button, Chip, Paper, Alert,
   CircularProgress, Stepper, Step, StepLabel, StepContent, Link, List
@@ -13,6 +14,8 @@ import {
   VideoCall as MeetingIcon,
   Description as ResumeIcon,
   Star as StarIcon,
+  AutoAwesome as AiIcon,
+  CheckCircle as CheckIcon,
 } from '@mui/icons-material';
 import { candidateService } from '../api/candidate.service';
 import type { CandidateProfile, CandidateProfileSummary, SuitableJobItem, MyCandidateApplication, CandidateStatus } from '../api/types';
@@ -31,6 +34,7 @@ interface CandidatePortalProps {
 }
 
 const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
+  const navigate = useNavigate();
   // Candidate Profile State
   const [profile, setProfile] = useState<CandidateProfile>({
     name: '',
@@ -74,6 +78,10 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
       loadSuitableJobs();
     } else if (tab === 'applications') {
       loadMyApplications();
+      const interval = setInterval(() => {
+        candidateService.getMyApplications().then((data) => setApplications(data)).catch(() => {});
+      }, 3000);
+      return () => clearInterval(interval);
     }
   }, [tab]);
 
@@ -356,7 +364,6 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
                             backgroundColor: '#0F1219',
                             color: '#FFF',
                             borderRadius: '8px',
-                            '& fieldset': { borderColor: 'rgba(255,255,255,0.12)' },
                           },
                         }}
                       />
@@ -379,7 +386,6 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
                             backgroundColor: '#0F1219',
                             color: '#FFF',
                             borderRadius: '8px',
-                            '& fieldset': { borderColor: 'rgba(255,255,255,0.12)' },
                           },
                         }}
                       />
@@ -401,7 +407,6 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
                             backgroundColor: '#0F1219',
                             color: '#FFF',
                             borderRadius: '8px',
-                            '& fieldset': { borderColor: 'rgba(255,255,255,0.12)' },
                           },
                         }}
                       />
@@ -424,7 +429,6 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
                             backgroundColor: '#0F1219',
                             color: '#FFF',
                             borderRadius: '8px',
-                            '& fieldset': { borderColor: 'rgba(255,255,255,0.12)' },
                           },
                         }}
                       />
@@ -446,7 +450,6 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
                             backgroundColor: '#0F1219',
                             color: '#FFF',
                             borderRadius: '8px',
-                            '& fieldset': { borderColor: 'rgba(255,255,255,0.12)' },
                           },
                         }}
                       />
@@ -471,7 +474,6 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
                             borderRadius: '8px',
                             fontSize: '0.88rem',
                             fontFamily: 'monospace',
-                            '& fieldset': { borderColor: 'rgba(255,255,255,0.12)' },
                           },
                         }}
                       />
@@ -827,7 +829,7 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
             </Box>
           ) : applications.length === 0 ? (
             <Paper sx={{ p: 6, textAlign: 'center', backgroundColor: '#0B0D10', borderRadius: '16px' }}>
-              <Typography variant="subtitle1" sx={{ color: '#969DAA', mb: 1 }}>
+                  <Typography variant="subtitle1" sx={{ color: '#969DAA', mb: 1 }}>
                 You have not submitted any job applications yet.
               </Typography>
             </Paper>
@@ -838,7 +840,7 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
                 const isRejected = app.status === 'REJECTED';
 
                 return (
-                  <Grid item xs={12} lg={6} key={app.id}>
+                  <Grid sx={{height:"100%"}} item xs={12} lg={6} key={app.id}>
                     <Card
                       sx={{
                         p: 3.5,
@@ -940,17 +942,21 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
                                       {app.interviews && app.interviews.length > 0 ? (
                                         <Grid container spacing={2}>
                                           {app.interviews.map((inv) => (
-                                            <Grid item xs={12} sm={6} md={6} key={inv.id}>
+                                            <Grid item xs={12} sm={6} key={inv.id}>
                                               <Paper
                                                 elevation={0}
                                                 sx={{
                                                   p: 2,
                                                   backgroundColor: '#0F1219',
-                                                  border: '1px solid rgba(99, 102, 241, 0.25)',
+                                                  border: inv.status === 'COMPLETED'
+                                                    ? '1px solid rgba(16, 185, 129, 0.3)'
+                                                    : inv.status === 'IN_PROGRESS'
+                                                    ? '1px solid rgba(6, 182, 212, 0.4)'
+                                                    : '1px solid rgba(99, 102, 241, 0.25)',
                                                   borderRadius: '10px',
                                                 }}
                                               >
-                                                <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+                                                <Box display="flex" alignItems="center" justifyContent="space-between" mb={1.2}>
                                                   <Chip
                                                     label={`${inv.type} ROUND`}
                                                     size="small"
@@ -962,11 +968,50 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
                                                       color: '#818cf8',
                                                     }}
                                                   />
-                                                  <Chip
-                                                    label={inv.status}
-                                                    size="small"
-                                                    sx={{ height: 20, fontSize: '0.65rem', fontWeight: 600 }}
-                                                  />
+                                                  {inv.status === 'IN_PROGRESS' ? (
+                                                     <Button
+                                                       size="small"
+                                                       variant="contained"
+                                                       startIcon={<AiIcon sx={{ fontSize: 13 }} />}
+                                                       onClick={() => navigate(`/interviews/${inv.id}/copilot`)}
+                                                       sx={{
+                                                         height: 24,
+                                                         fontSize: '0.72rem',
+                                                         fontWeight: 700,
+                                                         background: 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
+                                                         color: '#ffffff',
+                                                         borderRadius: '6px',
+                                                         py: 0,
+                                                         px: 1.5,
+                                                         boxShadow: '0 2px 8px rgba(99, 102, 241, 0.35)',
+                                                         '&:hover': {
+                                                           background: 'linear-gradient(135deg, #4f46e5 0%, #0891b2 100%)',
+                                                         }
+                                                       }}
+                                                     >
+                                                       Join Live Session
+                                                     </Button>
+                                                   ) : (inv.status === 'SCHEDULED' || inv.status === 'RESCHEDULED') ? (
+                                                     <Chip
+                                                       label="Waiting for interviewer to start"
+                                                       size="small"
+                                                       sx={{
+                                                         height: 20,
+                                                         fontSize: '0.62rem',
+                                                         fontWeight: 600,
+                                                         bgcolor: 'rgba(255, 255, 255, 0.05)',
+                                                         color: '#969DAA',
+                                                         border: '1px solid rgba(255, 255, 255, 0.1)'
+                                                       }}
+                                                     />
+                                                   ) : (
+                                                     <Chip
+                                                       label={inv.status}
+                                                       size="small"
+                                                       color={inv.status === 'COMPLETED' ? 'success' : 'default'}
+                                                       sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700 }}
+                                                     />
+                                                   )}
                                                 </Box>
 
                                                 <Box display="flex" alignItems="center" gap={1} mb={0.5}>
@@ -992,6 +1037,7 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
                                                       fontSize: '0.78rem',
                                                       fontWeight: 700,
                                                       color: '#10b981',
+                                                      mr: 2,
                                                       '&:hover': { color: '#34d399' },
                                                     }}
                                                   >
@@ -1018,9 +1064,28 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
                                   )}
 
                                   {stageLabel === 'HIRED' && (
-                                    <Typography variant="caption" sx={{ color: '#10b981', fontWeight: 600, display: 'block', lineHeight: 1.5 }}>
-                                      Offer extended! Candidate successfully hired for this position requisition.
-                                    </Typography>
+                                    <Paper
+                                      elevation={0}
+                                      sx={{
+                                        p: 2,
+                                        mt: 1,
+                                        backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                                        border: '1px solid rgba(16, 185, 129, 0.3)',
+                                        borderRadius: '10px'
+                                      }}
+                                    >
+                                      <Box display="flex" alignItems="center" gap={1.2}>
+                                        <CheckIcon sx={{ color: '#10b981', fontSize: 22 }} />
+                                        <Box>
+                                          <Typography variant="subtitle2" fontWeight={700} sx={{ color: '#10b981' }}>
+                                            🎉 Congratulations! Offer Extended
+                                          </Typography>
+                                          <Typography variant="caption" sx={{ color: '#969DAA', display: 'block', lineHeight: 1.4, mt: 0.3 }}>
+                                            You have successfully cleared all interview rounds for <strong>{app.job?.title || 'this position'}</strong>! Our talent acquisition team will be in touch with your formal offer details.
+                                          </Typography>
+                                        </Box>
+                                      </Box>
+                                    </Paper>
                                   )}
                                 </StepContent>
                               </Step>

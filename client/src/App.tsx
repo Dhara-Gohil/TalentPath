@@ -11,6 +11,7 @@ import CandidateDetails from './pages/CandidateDetails';
 import CandidateList from './pages/CandidateList';
 import AdminSettings from './pages/AdminSettings';
 import CandidatePortal from './pages/CandidatePortal';
+import InterviewWorkspace from './pages/InterviewWorkspace';
 
 const ProtectedRoute = ({ children, roles }: { children: JSX.Element; roles?: string[] }) => {
   const { user } = useAuth();
@@ -78,6 +79,11 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="candidates/:id" element={<CandidateDetails />} />
+          <Route path="interviews/:id/copilot" element={
+            <ProtectedRoute roles={['ADMIN', 'RECRUITER', 'INTERVIEWER', 'CANDIDATE']}>
+              <InterviewWorkspace />
+            </ProtectedRoute>
+          } />
           <Route path="admin-settings" element={
             <ProtectedRoute roles={['ADMIN']}>
               <AdminSettings />

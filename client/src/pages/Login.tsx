@@ -14,6 +14,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { authService } from '../api/auth.service';
 import SlicedWaves from '../components/SlicedWaves';
+import { showToast } from '../utils/toast';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -39,13 +40,16 @@ const Login = () => {
     try {
       const res = await authService.login(data);
       login(res.token, res.user);
+      showToast.success(`Welcome back, ${res.user.name || 'User'}!`);
       if (res.user.role === 'CANDIDATE') {
         navigate('/candidate-portal');
       } else {
         navigate('/dashboard');
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || err.response?.data?.message || 'Authentication failed');
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Authentication failed';
+      setError(errorMsg);
+      showToast.apiError(err, 'Authentication failed');
     }
   };
 

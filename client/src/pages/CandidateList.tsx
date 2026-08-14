@@ -21,6 +21,7 @@ import apiClient from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 import AddCandidateModal from '../components/AddCandidateModal';
 import ViewAiSummaryModal from '../components/ViewAiSummaryModal';
+import { showToast } from '../utils/toast';
 
 const CandidateList = () => {
   const navigate = useNavigate();
@@ -58,6 +59,7 @@ const CandidateList = () => {
       setJobs(jobData);
     } catch (error) {
       console.error('Failed to fetch participants data', error);
+      showToast.apiError(error, 'Failed to fetch candidate list');
     } finally {
       setLoading(false);
     }
@@ -70,9 +72,10 @@ const CandidateList = () => {
   const handleStatusChange = async (candidateId: string, newStatus: string) => {
     try {
       await apiClient.patch(`/candidates/${candidateId}/status`, { status: newStatus });
+      showToast.success(`Candidate status updated to ${newStatus.replace('_', ' ')}`);
       fetchCandidatesAndJobs();
     } catch (error) {
-      alert('Failed to update pipeline stage');
+      showToast.apiError(error, 'Failed to update pipeline stage');
     }
   };
 
@@ -146,7 +149,7 @@ const CandidateList = () => {
 
       {isInterviewer && (
         <Alert severity="info" sx={{ mb: 3, borderRadius: '8px', backgroundColor: 'rgba(99, 102, 241, 0.1)', color: '#818cf8', border: '1px solid rgba(129, 140, 248, 0.25)' }}>
-          ✦ Interviewer Workspace: Displaying candidates assigned to you for interview evaluation.
+          Interviewer Workspace: Displaying candidates assigned to you for interview evaluation.
         </Alert>
       )}
 
@@ -527,7 +530,7 @@ const CandidateList = () => {
                             '&:hover': { backgroundColor: '#4f46e5' }
                           }}
                         >
-                          ✦ AI Summary
+                          AI Summary
                         </Button>
                         <Button
                           size="small"

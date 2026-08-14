@@ -6,6 +6,7 @@ import { Drawer, Box, Typography, IconButton, Button, TextField, MenuItem, Alert
 import { Close as CloseIcon, RateReviewOutlined as ReviewIcon, HelpOutline as HelpIcon } from '@mui/icons-material';
 import apiClient from '../api/client';
 import { ROUND_SCORECARD_CONFIG } from './ScorecardConfig';
+import { showToast } from '../utils/toast';
 
 const feedbackSchema = z.object({
   technicalRating: z.coerce.number().min(1, 'Rating required').max(10),
@@ -40,11 +41,14 @@ const FeedbackModal = ({ open, onClose, interviewId, roundType = 'TECHNICAL', on
   const onSubmit = async (data: FeedbackForm) => {
     try {
       await apiClient.post(`/interviews/${interviewId}/feedback`, data);
+      showToast.success('Scorecard feedback submitted successfully!');
       reset();
       onFeedbackSubmitted();
       onClose();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to submit feedback');
+      const errorMsg = err.response?.data?.message || err.response?.data?.error || 'Failed to submit feedback';
+      setError(errorMsg);
+      showToast.apiError(err, 'Failed to submit feedback');
     }
   };
 

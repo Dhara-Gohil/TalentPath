@@ -13,6 +13,7 @@ import {
 } from '@mui/icons-material';
 import { authService } from '../api/auth.service';
 import SlicedWaves from '../components/SlicedWaves';
+import { showToast } from '../utils/toast';
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Name is required'),
@@ -37,9 +38,12 @@ const Register = () => {
   const onSubmit = async (data: RegisterForm) => {
     try {
       await authService.register({ ...data, role: 'CANDIDATE' });
+      showToast.success('Account created successfully! Please sign in.');
       navigate('/login');
     } catch (err: any) {
-      setError(err.response?.data?.error || err.response?.data?.message || 'Registration failed');
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Registration failed';
+      setError(errorMsg);
+      showToast.apiError(err, 'Registration failed');
     }
   };
 

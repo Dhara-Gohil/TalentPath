@@ -95,9 +95,25 @@ export const candidatePortalService = {
 
   async getSuitableJobs(userId: string) {
     const profile = await prisma.candidateProfile.findUnique({ where: { userId } });
-    
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+
+    // Fetch all job IDs candidate has ALREADY applied for
+    const existingApps = user ? await prisma.candidate.findMany({
+      where: {
+        OR: [{ userId }, { email: user.email }]
+      },
+      select: { jobId: true }
+    }) : [];
+
+    const appliedJobIds = new Set(existingApps.map(a => a.jobId));
+
     const openJobs = await prisma.job.findMany({
-      where: { status: 'OPEN' },
+      where: {
+        status: 'OPEN',
+        id: {
+          notIn: Array.from(appliedJobIds)
+        }
+      },
       select: {
         id: true,
         title: true,

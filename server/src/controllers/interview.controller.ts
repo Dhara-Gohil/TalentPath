@@ -115,3 +115,46 @@ export const deleteInterview = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: error.message || 'Error deleting interview' });
   }
 };
+
+export const saveTranscript = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { transcript } = req.body;
+    const result = await interviewService.saveTranscript(id, transcript || '');
+    res.json(result);
+  } catch (error: any) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
+    res.status(500).json({ error: error.message || 'Error saving transcript' });
+  }
+};
+
+export const analyzeCopilot = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { transcript, targetTopic } = req.body || {};
+    const analysis = await interviewService.analyzeCopilot(id, transcript, targetTopic);
+    res.json(analysis);
+  } catch (error: any) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
+    res.status(500).json({ error: error.message || 'Error analyzing live interview copilot transcript' });
+  }
+};
+
+export const generateCopilotFeedback = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { transcript } = req.body;
+    const feedbackDraft = await interviewService.generateCopilotFeedback(id, transcript);
+    res.json(feedbackDraft);
+  } catch (error: any) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
+    res.status(500).json({ error: error.message || 'Error generating AI copilot feedback draft' });
+  }
+};
+

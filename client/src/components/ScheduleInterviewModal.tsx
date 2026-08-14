@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { Drawer, Box, Typography, IconButton, Button, TextField, MenuItem, Alert, Grid, Divider } from '@mui/material';
 import { Close as CloseIcon, EventAvailableOutlined as ScheduleIcon } from '@mui/icons-material';
 import apiClient from '../api/client';
+import { showToast } from '../utils/toast';
 
 const interviewSchema = z.object({
   interviewerId: z.string().min(1, 'Please select an interviewer'),
@@ -108,8 +109,10 @@ const ScheduleInterviewModal = ({ open, onClose, candidateId, defaultType = 'TEC
 
       if (editingInterview) {
         await apiClient.put(`/interviews/${editingInterview.id}`, payload);
+        showToast.success('Interview session updated successfully!');
       } else {
         await apiClient.post('/interviews', payload);
+        showToast.success('Interview session scheduled successfully!');
       }
 
       reset();
@@ -117,7 +120,9 @@ const ScheduleInterviewModal = ({ open, onClose, candidateId, defaultType = 'TEC
       onClose();
     } catch (err: any) {
       const serverMsg = err.response?.data?.details?.[0]?.message || err.response?.data?.error || err.response?.data?.message;
-      setError(serverMsg || 'Failed to process interview session');
+      const finalErr = serverMsg || 'Failed to process interview session';
+      setError(finalErr);
+      showToast.apiError(err, 'Failed to process interview session');
     }
   };
 
@@ -178,7 +183,7 @@ const ScheduleInterviewModal = ({ open, onClose, candidateId, defaultType = 'TEC
               }}
             >
               <Typography variant="body2" fontWeight={600} sx={{ color: '#818cf8', fontSize: '0.82rem' }}>
-                ✦ {(editingInterview?.type || defaultType).replace('_', ' ')} ROUND
+                {(editingInterview?.type || defaultType).replace('_', ' ')} ROUND
               </Typography>
             </Box>
             <input type="hidden" value={editingInterview?.type || defaultType} {...register('type')} />

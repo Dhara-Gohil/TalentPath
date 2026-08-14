@@ -76,7 +76,7 @@ export const changeStatus = async (req: AuthRequest, res: Response) => {
     }
     const { id } = req.params;
     const { status } = updateCandidateStatusSchema.parse(req.body);
-    const candidate = await candidateService.updateCandidateStatus(id, status);
+    const candidate = await candidateService.updateCandidateStatus(id, status, req.user?.role);
     res.json(candidate);
   } catch (error: any) {
     if (error.statusCode) {

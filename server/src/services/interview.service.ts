@@ -73,7 +73,7 @@ export const interviewService = {
       },
     });
 
-    if (['APPLIED', 'SCREENING'].includes(candidate.status)) {
+    if (candidate.status !== 'HIRED' && candidate.status !== 'REJECTED') {
       await prisma.candidate.update({
         where: { id: data.candidateId },
         data: { status: 'INTERVIEW' },
@@ -114,10 +114,22 @@ export const interviewService = {
       throw { statusCode: 403, message: 'You are not authorized to change status for an interview assigned to another interviewer' };
     }
 
-    return prisma.interview.update({
+    const updated = await prisma.interview.update({
       where: { id },
       data: { status: data.status },
     });
+
+    if (data.status === 'COMPLETED') {
+      const candidate = await prisma.candidate.findUnique({ where: { id: existing.candidateId } });
+      if (candidate && candidate.status !== 'HIRED' && candidate.status !== 'REJECTED') {
+        await prisma.candidate.update({
+          where: { id: existing.candidateId },
+          data: { status: 'INTERVIEW' }
+        });
+      }
+    }
+
+    return updated;
   },
 
   async deleteInterview(id: string) {
@@ -128,5 +140,111 @@ export const interviewService = {
 
     await prisma.interview.delete({ where: { id } });
     return { message: 'Interview session cancelled & deleted' };
+  },
+
+  async saveTranscript(id: string, transcript: string) {
+    const existing = await prisma.interview.findUnique({ where: { id } });
+    if (!existing) {
+      throw { statusCode: 404, message: 'Interview not found' };
+    }
+
+    return prisma.interview.update({
+      where: { id },
+      data: { transcript },
+    });
+  },
+
+  async analyzeCopilot(id: string, customTranscript?: string, targetTopic?: string) {
+    const interview = await prisma.interview.findUnique({
+      where: { id },
+      include: {
+        candidate: {
+          include: {
+            job: true,
+          },
+        },
+      },
+    });
+
+    if (!interview) {
+      throw { statusCode: 404, message: 'Interview not found' };
+    }
+
+    const candidate = interview.candidate;
+    const job = candidate.job;
+    const transcriptText = customTranscript ?? interview.transcript ?? '';
+
+    // Persist transcript if provided
+    if (customTranscript !== undefined && customTranscript !== interview.transcript) {
+      await prisma.interview.update({
+        where: { id },
+        data: { transcript: customTranscript },
+      });
+    }
+
+    const { aiService } = await import('./ai.service');
+    return aiService.analyzeLiveCopilotTranscript(
+      {
+        name: candidate.name,
+        resumeText: candidate.resumeText,
+        skills: candidate.skills,
+        experienceYears: candidate.experienceYears,
+      },
+      {
+        title: job.title,
+        description: job.description,
+        requiredSkills: job.requiredSkills,
+      },
+      interview.type,
+      transcriptText,
+      targetTopic
+    );
+  },
+
+  async generateCopilotFeedback(id: string, customTranscript?: string) {
+    const interview = await prisma.interview.findUnique({
+      where: { id },
+      include: {
+        candidate: {
+          include: {
+            job: true,
+          },
+        },
+      },
+    });
+
+    if (!interview) {
+      throw { statusCode: 404, message: 'Interview not found' };
+    }
+
+    const candidate = interview.candidate;
+    const job = candidate.job;
+    const transcriptText = customTranscript ?? interview.transcript ?? '';
+
+    // Save final transcript and set status to COMPLETED if active/scheduled
+    await prisma.interview.update({
+      where: { id },
+      data: {
+        transcript: transcriptText,
+        status: 'COMPLETED',
+      },
+    });
+
+    const { aiService } = await import('./ai.service');
+    return aiService.generateCopilotFeedbackDraft(
+      {
+        name: candidate.name,
+        resumeText: candidate.resumeText,
+        skills: candidate.skills,
+        experienceYears: candidate.experienceYears,
+      },
+      {
+        title: job.title,
+        description: job.description,
+        requiredSkills: job.requiredSkills,
+      },
+      interview.type,
+      transcriptText
+    );
   },
 };

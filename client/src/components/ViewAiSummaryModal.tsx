@@ -11,10 +11,10 @@ interface Props {
 }
 
 const loadingSteps = [
-  '✦ Extracting interview trace points...',
-  '✦ Cross-referencing 4-round scorecards...',
-  '✦ Synthesizing interviewer notes & ratings...',
-  '✦ Formulating final hiring recommendation...'
+  'Extracting interview trace points...',
+  'Cross-referencing 4-round scorecards...',
+  'Synthesizing interviewer notes & ratings...',
+  'Formulating final hiring recommendation...'
 ];
 
 const ViewAiSummaryModal = ({ open, onClose, candidate, onEvaluationGenerated }: Props) => {
@@ -182,7 +182,7 @@ const ViewAiSummaryModal = ({ open, onClose, candidate, onEvaluationGenerated }:
                 4-Round Synthesized Recommendation
               </Typography>
               <Chip
-                label={`✦ ${evaluation.recommendation}`}
+                label={`${evaluation.recommendation}`}
                 sx={{
                   height: 24,
                   fontSize: '0.75rem',

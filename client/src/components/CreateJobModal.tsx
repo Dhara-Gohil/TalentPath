@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -16,6 +16,8 @@ import {
   EditOutlined as EditIcon
 } from '@mui/icons-material';
 import apiClient from '../api/client';
+import { renderFormattedText } from '../utils/textFormatter';
+import { showToast } from '../utils/toast';
 
 const jobSchema = z.object({
   title: z.string().min(3, 'Title is required'),
@@ -36,78 +38,7 @@ interface Props {
   editingJob?: any;
 }
 
-const parseInlineFormatting = (text: string) => {
-  const parts = text.split(/(\*\*.*?\*\*|\*.*?\*)/g);
-  return parts.map((part, index) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return (
-        <strong key={index} style={{ color: '#F5F7FA', fontWeight: 600 }}>
-          {part.slice(2, -2)}
-        </strong>
-      );
-    }
-    if (part.startsWith('*') && part.endsWith('*')) {
-      return (
-        <em key={index} style={{ color: '#969DAA' }}>
-          {part.slice(1, -1)}
-        </em>
-      );
-    }
-    return part;
-  });
-};
 
-export const renderFormattedText = (text: string) => {
-  if (!text) return <Typography variant="caption" color="#626975" fontStyle="italic">No description provided yet...</Typography>;
-
-  const lines = text.split('\n');
-  const elements: React.ReactNode[] = [];
-
-  lines.forEach((line, idx) => {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      elements.push(<Box key={idx} sx={{ height: 6 }} />);
-      return;
-    }
-
-    if (trimmed.startsWith('### ')) {
-      elements.push(
-        <Typography key={idx} variant="subtitle2" fontWeight={700} sx={{ color: '#F5F7FA', mt: 1.5, mb: 0.5 }}>
-          {parseInlineFormatting(trimmed.replace('### ', ''))}
-        </Typography>
-      );
-    } else if (trimmed.startsWith('## ')) {
-      elements.push(
-        <Typography key={idx} variant="subtitle1" fontWeight={700} sx={{ color: '#818cf8', mt: 2, mb: 0.5 }}>
-          {parseInlineFormatting(trimmed.replace('## ', ''))}
-        </Typography>
-      );
-    } else if (trimmed.startsWith('# ')) {
-      elements.push(
-        <Typography key={idx} variant="h6" fontWeight={700} sx={{ color: '#F5F7FA', mt: 2, mb: 0.5 }}>
-          {parseInlineFormatting(trimmed.replace('# ', ''))}
-        </Typography>
-      );
-    } else if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
-      elements.push(
-        <Box key={idx} display="flex" alignItems="flex-start" gap={1} sx={{ ml: 1, my: 0.3 }}>
-          <Typography variant="body2" sx={{ color: '#818cf8', lineHeight: 1.5, fontWeight: 700 }}>•</Typography>
-          <Typography variant="body2" sx={{ color: '#969DAA', lineHeight: 1.5, fontSize: '0.82rem' }}>
-            {parseInlineFormatting(trimmed.replace(/^[*|-]\s+/, ''))}
-          </Typography>
-        </Box>
-      );
-    } else {
-      elements.push(
-        <Typography key={idx} variant="body2" sx={{ color: '#969DAA', lineHeight: 1.6, fontSize: '0.82rem', mb: 0.5 }}>
-          {parseInlineFormatting(line)}
-        </Typography>
-      );
-    }
-  });
-
-  return <Box>{elements}</Box>;
-};
 
 const CreateJobModal = ({ open, onClose, onJobCreated, editingJob }: Props) => {
   const [error, setError] = useState('');
@@ -144,11 +75,129 @@ const CreateJobModal = ({ open, onClose, onJobCreated, editingJob }: Props) => {
     }
   }, [editingJob, open, reset]);
 
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const descriptionValue = watch('description') || '';
+  const { ref: descriptionRef, ...descriptionRegister } = register('description');
 
   const handleFormatInsert = (prefix: string, suffix: string = '') => {
-    const current = descriptionValue;
-    setValue('description', current + `${prefix}formatted text${suffix}`);
+    const textarea = textareaRef.current;
+    const currentText = descriptionValue;
+
+    if (!textarea) {
+      setValue('description', currentText + `${prefix}formatted text${suffix}`, { shouldValidate: true, shouldDirty: true });
+      return;
+    }
+
+    let start = textarea.selectionStart;
+    let end = textarea.selectionEnd;
+    let selectedText = currentText.substring(start, end);
+
+    let updatedText = '';
+    let newCursorStart = start;
+    let newCursorEnd = end;
+
+    const isBold = prefix === '**';
+    const isItalic = prefix === '*';
+    const isHeading = prefix.includes('##');
+    const isList = prefix.includes('* ');
+
+    if (selectedText) {
+      if (isBold) {
+        if (selectedText.startsWith('**') && selectedText.endsWith('**') && selectedText.length >= 4) {
+          const innerText = selectedText.slice(2, -2);
+          updatedText = currentText.substring(0, start) + innerText + currentText.substring(end);
+          newCursorStart = start;
+          newCursorEnd = start + innerText.length;
+        } else if (
+          start >= 2 &&
+          end + 2 <= currentText.length &&
+          currentText.substring(start - 2, start) === '**' &&
+          currentText.substring(end, end + 2) === '**'
+        ) {
+          updatedText = currentText.substring(0, start - 2) + selectedText + currentText.substring(end + 2);
+          newCursorStart = start - 2;
+          newCursorEnd = newCursorStart + selectedText.length;
+        } else {
+          const replacement = `**${selectedText}**`;
+          updatedText = currentText.substring(0, start) + replacement + currentText.substring(end);
+          newCursorStart = start;
+          newCursorEnd = start + replacement.length;
+        }
+      } else if (isItalic) {
+        if (
+          selectedText.startsWith('*') &&
+          selectedText.endsWith('*') &&
+          !selectedText.startsWith('**') &&
+          selectedText.length >= 2
+        ) {
+          const innerText = selectedText.slice(1, -1);
+          updatedText = currentText.substring(0, start) + innerText + currentText.substring(end);
+          newCursorStart = start;
+          newCursorEnd = start + innerText.length;
+        } else if (
+          start >= 1 &&
+          end + 1 <= currentText.length &&
+          currentText[start - 1] === '*' &&
+          currentText[end] === '*' &&
+          currentText[start - 2] !== '*'
+        ) {
+          updatedText = currentText.substring(0, start - 1) + selectedText + currentText.substring(end + 1);
+          newCursorStart = start - 1;
+          newCursorEnd = newCursorStart + selectedText.length;
+        } else {
+          const replacement = `*${selectedText}*`;
+          updatedText = currentText.substring(0, start) + replacement + currentText.substring(end);
+          newCursorStart = start;
+          newCursorEnd = start + replacement.length;
+        }
+      } else if (isHeading) {
+        if (/^(#{1,6}\s*)/.test(selectedText)) {
+          const innerText = selectedText.replace(/^(#{1,6}\s*)/, '');
+          updatedText = currentText.substring(0, start) + innerText + currentText.substring(end);
+          newCursorStart = start;
+          newCursorEnd = start + innerText.length;
+        } else {
+          const replacement = `\n## ${selectedText}`;
+          updatedText = currentText.substring(0, start) + replacement + currentText.substring(end);
+          newCursorStart = start;
+          newCursorEnd = start + replacement.length;
+        }
+      } else if (isList) {
+        const lines = selectedText.split('\n');
+        const hasListFormatting = lines.some((l) => /^\s*\*\s+/.test(l));
+
+        if (hasListFormatting) {
+          const unformatted = lines.map((l) => l.replace(/^\s*\*\s+/, '')).join('\n');
+          updatedText = currentText.substring(0, start) + unformatted + currentText.substring(end);
+          newCursorStart = start;
+          newCursorEnd = start + unformatted.length;
+        } else {
+          const formattedLines = lines.map((line) => (line.trim() ? `* ${line}` : line)).join('\n');
+          const replacement = `\n${formattedLines}\n`;
+          updatedText = currentText.substring(0, start) + replacement + currentText.substring(end);
+          newCursorStart = start;
+          newCursorEnd = start + replacement.length;
+        }
+      } else {
+        const replacement = `${prefix}${selectedText}${suffix}`;
+        updatedText = currentText.substring(0, start) + replacement + currentText.substring(end);
+        newCursorStart = start;
+        newCursorEnd = start + replacement.length;
+      }
+    } else {
+      const placeholder = 'formatted text';
+      const replacement = `${prefix}${placeholder}${suffix}`;
+      updatedText = currentText.substring(0, start) + replacement + currentText.substring(end);
+      newCursorStart = start + prefix.length;
+      newCursorEnd = newCursorStart + placeholder.length;
+    }
+
+    setValue('description', updatedText, { shouldValidate: true, shouldDirty: true });
+
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(newCursorStart, newCursorEnd);
+    }, 0);
   };
 
   const onSubmit = async (data: JobForm) => {
@@ -156,14 +205,18 @@ const CreateJobModal = ({ open, onClose, onJobCreated, editingJob }: Props) => {
       setError('');
       if (editingJob) {
         await apiClient.put(`/jobs/${editingJob.id}`, data);
+        showToast.success('Job position updated successfully!');
       } else {
         await apiClient.post('/jobs', { ...data, status: 'OPEN' });
+        showToast.success('Job position created successfully!');
       }
       reset();
       onJobCreated();
       onClose();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to process job position');
+      const errorMsg = err.response?.data?.message || err.response?.data?.error || 'Failed to process job position';
+      setError(errorMsg);
+      showToast.apiError(err, 'Failed to process job position');
     }
   };
 
@@ -357,7 +410,11 @@ const CreateJobModal = ({ open, onClose, onJobCreated, editingJob }: Props) => {
                   multiline
                   rows={8}
                   placeholder="Type rich text description..."
-                  {...register('description')}
+                  {...descriptionRegister}
+                  inputRef={(e) => {
+                    descriptionRef(e);
+                    textareaRef.current = e;
+                  }}
                   error={!!errors.description}
                   helperText={errors.description?.message}
                   sx={{

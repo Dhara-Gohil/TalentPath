@@ -16,7 +16,7 @@ export const feedbackService = {
       throw { statusCode: 400, message: 'Feedback can only be submitted for completed interviews' };
     }
 
-    return prisma.feedback.create({
+    const feedback = await prisma.feedback.create({
       data: {
         ...data,
         comments: data.comments || '',
@@ -24,6 +24,16 @@ export const feedbackService = {
         createdBy: userId,
       },
     });
+
+    const candidate = await prisma.candidate.findUnique({ where: { id: interview.candidateId } });
+    if (candidate && candidate.status !== 'HIRED' && candidate.status !== 'REJECTED') {
+      await prisma.candidate.update({
+        where: { id: interview.candidateId },
+        data: { status: 'INTERVIEW' }
+      });
+    }
+
+    return feedback;
   },
 
   async updateFeedback(feedbackId: string, data: UpdateFeedbackInput, userId: string, userRole?: string) {

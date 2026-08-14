@@ -31,4 +31,19 @@ export const interviewService = {
     const { data } = await apiClient.delete<{ message: string }>(`/interviews/${id}`);
     return data;
   },
+
+  saveTranscript: async (id: string, transcript: string): Promise<Interview> => {
+    const { data } = await apiClient.put<Interview>(`/interviews/${id}/transcript`, { transcript });
+    return data;
+  },
+
+  analyzeCopilot: async (id: string, transcript?: string, targetTopic?: string) => {
+    const { data } = await apiClient.post(`/interviews/${id}/copilot/analyze`, { transcript, targetTopic });
+    return data;
+  },
+
+  generateCopilotFeedback: async (id: string, transcript?: string) => {
+    const { data } = await apiClient.post(`/interviews/${id}/copilot/generate-feedback`, { transcript });
+    return data;
+  },
 };

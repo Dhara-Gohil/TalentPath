@@ -18,11 +18,16 @@
   --accent-coral: #f43f5e;
 }
 
-* {
+*:not([data-sonner-toaster], [data-sonner-toaster] *, [data-sonner-toast], [data-sonner-toast] *) {
   box-sizing: border-box;
   box-shadow: none !important;
   text-shadow: none !important;
 }
+
+[data-sonner-toaster] {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+
 
 html, body, #root {
   width: 100%;
@@ -119,8 +124,8 @@ body::before {
   animation: aiPulse 1.8s ease-in-out infinite;
 }
 
-/* Smooth Focus Ring without Shadow */
+/* Smooth Focus Ring without Extra Inner Box */
 input:focus, textarea:focus, select:focus {
-  outline: 1px solid var(--accent-primary) !important;
-  border-color: var(--accent-primary) !important;
+  outline: none !important;
+  box-shadow: none !important;
 }

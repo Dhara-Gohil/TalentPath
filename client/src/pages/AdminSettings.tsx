@@ -18,6 +18,7 @@ import {
 } from '@mui/icons-material';
 import apiClient from '../api/client';
 import { authService } from '../api/auth.service';
+import { showToast } from '../utils/toast';
 
 
 const AdminSettings = () => {
@@ -78,7 +79,9 @@ const AdminSettings = () => {
   }, []);
 
   const handleSaveSettings = () => {
-    setSaveSuccess('Admin & AI configuration settings updated successfully!');
+    const msg = 'Admin & AI configuration settings updated successfully!';
+    setSaveSuccess(msg);
+    showToast.success(msg);
     setTimeout(() => setSaveSuccess(''), 4000);
   };
 
@@ -86,8 +89,10 @@ const AdminSettings = () => {
     setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
     try {
       await authService.updateUserRole(userId, newRole as any);
-    } catch (err) {
+      showToast.success('User role updated successfully');
+    } catch (err: any) {
       console.error('Failed to update role', err);
+      showToast.apiError(err, 'Failed to update user role');
     }
   };
 
@@ -95,6 +100,7 @@ const AdminSettings = () => {
     e.preventDefault();
     if (!newMemberName || !newMemberEmail || !newMemberPassword) {
       setAddMemberError('Please fill in all required fields.');
+      showToast.warning('Please fill in all required fields');
       return;
     }
 
@@ -115,10 +121,11 @@ const AdminSettings = () => {
       setNewMemberEmail('');
       setNewMemberPassword('');
       setNewMemberRole('RECRUITER');
-      setSaveSuccess('New team member added successfully!');
-      setTimeout(() => setSaveSuccess(''), 4000);
+      showToast.success('New team member added successfully!');
     } catch (err: any) {
-      setAddMemberError(err.response?.data?.error || err.response?.data?.message || 'Failed to add team member.');
+      const errMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to add team member.';
+      setAddMemberError(errMsg);
+      showToast.apiError(err, 'Failed to add team member');
     } finally {
       setAddMemberLoading(false);
     }
@@ -159,10 +166,11 @@ const AdminSettings = () => {
 
       setUsers(users.map(u => u.id === editingUser.id ? { ...u, ...data } : u));
       setOpenEditModal(false);
-      setSaveSuccess('Team member updated successfully!');
-      setTimeout(() => setSaveSuccess(''), 4000);
+      showToast.success('Team member details updated successfully!');
     } catch (err: any) {
-      setEditError(err.response?.data?.error || err.response?.data?.message || 'Failed to update team member.');
+      const errMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to update team member.';
+      setEditError(errMsg);
+      showToast.apiError(err, 'Failed to update team member');
     } finally {
       setEditLoading(false);
     }
@@ -183,10 +191,11 @@ const AdminSettings = () => {
       await authService.deleteUser(userToDelete.id);
       setUsers(users.filter(u => u.id !== userToDelete.id));
       setOpenDeleteModal(false);
-      setSaveSuccess('Team member deleted successfully!');
-      setTimeout(() => setSaveSuccess(''), 4000);
+      showToast.success('Team member removed successfully!');
     } catch (err: any) {
-      setDeleteError(err.response?.data?.error || err.response?.data?.message || 'Failed to delete team member.');
+      const errMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to delete team member.';
+      setDeleteError(errMsg);
+      showToast.apiError(err, 'Failed to delete team member');
     } finally {
       setDeleteLoading(false);
     }

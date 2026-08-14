@@ -116,16 +116,19 @@ const theme = createTheme({
           color: '#F5F7FA',
           boxShadow: 'none !important',
           '& .MuiOutlinedInput-notchedOutline': {
-            borderColor: 'rgba(255, 255, 255, 0.08)',
+            borderColor: 'rgba(255, 255, 255, 0.12)',
           },
           '&:hover .MuiOutlinedInput-notchedOutline': {
-            borderColor: 'rgba(255, 255, 255, 0.16)',
+            borderColor: 'rgba(255, 255, 255, 0.24)',
           },
           '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
             borderColor: '#6366f1',
-            borderWidth: 1,
+            borderWidth: 1.5,
           },
-          '& .MuiOutlinedInput-input': {
+          '& .MuiOutlinedInput-input, & textarea': {
+            outline: 'none !important',
+            boxShadow: 'none !important',
+            border: 'none !important',
             '&:-webkit-autofill': {
               WebkitBoxShadow: '0 0 0 1000px #0F1219 inset !important',
               WebkitTextFillColor: '#FFFFFF !important',
