@@ -60,6 +60,38 @@ export const interviewService = {
       throw { statusCode: 404, message: 'Interviewer not found' };
     }
 
+    // Enforce sequential round progression rule:
+    // Round order: TECHNICAL -> HR -> MANAGERIAL -> CULTURAL
+    const roundOrder = ['TECHNICAL', 'HR', 'MANAGERIAL', 'CULTURAL'];
+    const currentRoundIdx = roundOrder.indexOf(data.type);
+
+    if (currentRoundIdx > 0) {
+      const prevRoundType = roundOrder[currentRoundIdx - 1];
+      const prevInterview = await prisma.interview.findFirst({
+        where: {
+          candidateId: data.candidateId,
+          type: prevRoundType,
+        },
+        include: {
+          feedback: true,
+        },
+      });
+
+      if (!prevInterview) {
+        throw {
+          statusCode: 400,
+          message: `Cannot schedule ${data.type} interview. The previous round (${prevRoundType}) has not been created yet.`
+        };
+      }
+
+      if (prevInterview.status !== 'COMPLETED' || !prevInterview.feedback || prevInterview.feedback.length === 0) {
+        throw {
+          statusCode: 400,
+          message: `Cannot schedule ${data.type} interview. The previous round (${prevRoundType}) must be COMPLETED and its scorecard submitted first.`
+        };
+      }
+    }
+
     const interview = await prisma.interview.create({
       data: {
         candidateId: data.candidateId,
@@ -171,6 +203,10 @@ export const interviewService = {
     }
 
     const candidate = interview.candidate;
+    if (!candidate) {
+      throw { statusCode: 404, message: 'Candidate record not found for this interview session' };
+    }
+
     const job = candidate.job;
     const transcriptText = customTranscript ?? interview.transcript ?? '';
 
@@ -185,17 +221,17 @@ export const interviewService = {
     const { aiService } = await import('./ai.service');
     return aiService.analyzeLiveCopilotTranscript(
       {
-        name: candidate.name,
-        resumeText: candidate.resumeText,
-        skills: candidate.skills,
-        experienceYears: candidate.experienceYears,
+        name: candidate.name || 'Candidate',
+        resumeText: candidate.resumeText || '',
+        skills: candidate.skills || '',
+        experienceYears: candidate.experienceYears || 0,
       },
       {
-        title: job.title,
-        description: job.description,
-        requiredSkills: job.requiredSkills,
+        title: job?.title || 'Technical Role',
+        description: job?.description || '',
+        requiredSkills: job?.requiredSkills || '',
       },
-      interview.type,
+      interview.type || 'TECHNICAL',
       transcriptText,
       targetTopic
     );
@@ -218,6 +254,10 @@ export const interviewService = {
     }
 
     const candidate = interview.candidate;
+    if (!candidate) {
+      throw { statusCode: 404, message: 'Candidate record not found for this interview session' };
+    }
+
     const job = candidate.job;
     const transcriptText = customTranscript ?? interview.transcript ?? '';
 
@@ -233,18 +273,61 @@ export const interviewService = {
     const { aiService } = await import('./ai.service');
     return aiService.generateCopilotFeedbackDraft(
       {
-        name: candidate.name,
-        resumeText: candidate.resumeText,
-        skills: candidate.skills,
-        experienceYears: candidate.experienceYears,
+        name: candidate.name || 'Candidate',
+        resumeText: candidate.resumeText || '',
+        skills: candidate.skills || '',
+        experienceYears: candidate.experienceYears || 0,
       },
       {
-        title: job.title,
-        description: job.description,
-        requiredSkills: job.requiredSkills,
+        title: job?.title || 'Technical Role',
+        description: job?.description || '',
+        requiredSkills: job?.requiredSkills || '',
       },
-      interview.type,
+      interview.type || 'TECHNICAL',
       transcriptText
+    );
+  },
+
+  async regenerateCopilotQuestions(id: string, targetTopic?: string) {
+    const interview = await prisma.interview.findUnique({
+      where: { id },
+      include: {
+        candidate: {
+          include: {
+            job: true,
+          },
+        },
+      },
+    });
+
+    if (!interview) {
+      throw { statusCode: 404, message: 'Interview not found' };
+    }
+
+    const candidate = interview.candidate;
+    if (!candidate) {
+      throw { statusCode: 404, message: 'Candidate record not found for this interview session' };
+    }
+
+    const job = candidate.job;
+    const transcriptText = interview.transcript ?? '';
+
+    const { aiService } = await import('./ai.service');
+    return aiService.generateCopilotQuestions(
+      {
+        name: candidate.name || 'Candidate',
+        resumeText: candidate.resumeText || '',
+        skills: candidate.skills || '',
+        experienceYears: candidate.experienceYears || 0,
+      },
+      {
+        title: job?.title || 'Technical Role',
+        description: job?.description || '',
+        requiredSkills: job?.requiredSkills || '',
+      },
+      interview.type || 'TECHNICAL',
+      transcriptText,
+      targetTopic
     );
   },
 };

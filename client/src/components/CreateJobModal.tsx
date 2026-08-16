@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
-  Drawer, Box, Typography, IconButton, Button, TextField, MenuItem, Alert, Grid, Divider, Paper, ToggleButtonGroup, ToggleButton, Tooltip
+  Drawer, Box, Typography, IconButton, Button, TextField, MenuItem, Alert, Grid, Divider, Paper, ToggleButtonGroup, ToggleButton, CircularProgress, Select, FormControl, Tooltip
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -13,7 +13,8 @@ import {
   Title as HeadingIcon,
   FormatListBulleted as ListIcon,
   VisibilityOutlined as PreviewIcon,
-  EditOutlined as EditIcon
+  EditOutlined as EditIcon,
+  AutoAwesome as SparklesIcon
 } from '@mui/icons-material';
 import apiClient from '../api/client';
 import { renderFormattedText } from '../utils/textFormatter';
@@ -38,13 +39,11 @@ interface Props {
   editingJob?: any;
 }
 
-
-
 const CreateJobModal = ({ open, onClose, onJobCreated, editingJob }: Props) => {
   const [error, setError] = useState('');
   const [previewTab, setPreviewTab] = useState<'edit' | 'preview'>('edit');
 
-  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<JobForm>({
+  const { control, register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<JobForm>({
     resolver: zodResolver(jobSchema),
     defaultValues: {
       employmentType: 'FULL_TIME',
@@ -98,25 +97,16 @@ const CreateJobModal = ({ open, onClose, onJobCreated, editingJob }: Props) => {
 
     const isBold = prefix === '**';
     const isItalic = prefix === '*';
-    const isHeading = prefix.includes('##');
-    const isList = prefix.includes('* ');
+    const isHeading = prefix === '## ';
+    const isList = prefix === '* ';
 
     if (selectedText) {
       if (isBold) {
-        if (selectedText.startsWith('**') && selectedText.endsWith('**') && selectedText.length >= 4) {
-          const innerText = selectedText.slice(2, -2);
-          updatedText = currentText.substring(0, start) + innerText + currentText.substring(end);
+        if (selectedText.startsWith('**') && selectedText.endsWith('**')) {
+          const unformatted = selectedText.slice(2, -2);
+          updatedText = currentText.substring(0, start) + unformatted + currentText.substring(end);
           newCursorStart = start;
-          newCursorEnd = start + innerText.length;
-        } else if (
-          start >= 2 &&
-          end + 2 <= currentText.length &&
-          currentText.substring(start - 2, start) === '**' &&
-          currentText.substring(end, end + 2) === '**'
-        ) {
-          updatedText = currentText.substring(0, start - 2) + selectedText + currentText.substring(end + 2);
-          newCursorStart = start - 2;
-          newCursorEnd = newCursorStart + selectedText.length;
+          newCursorEnd = start + unformatted.length;
         } else {
           const replacement = `**${selectedText}**`;
           updatedText = currentText.substring(0, start) + replacement + currentText.substring(end);
@@ -124,26 +114,11 @@ const CreateJobModal = ({ open, onClose, onJobCreated, editingJob }: Props) => {
           newCursorEnd = start + replacement.length;
         }
       } else if (isItalic) {
-        if (
-          selectedText.startsWith('*') &&
-          selectedText.endsWith('*') &&
-          !selectedText.startsWith('**') &&
-          selectedText.length >= 2
-        ) {
-          const innerText = selectedText.slice(1, -1);
-          updatedText = currentText.substring(0, start) + innerText + currentText.substring(end);
+        if (selectedText.startsWith('*') && selectedText.endsWith('*') && !selectedText.startsWith('**')) {
+          const unformatted = selectedText.slice(1, -1);
+          updatedText = currentText.substring(0, start) + unformatted + currentText.substring(end);
           newCursorStart = start;
-          newCursorEnd = start + innerText.length;
-        } else if (
-          start >= 1 &&
-          end + 1 <= currentText.length &&
-          currentText[start - 1] === '*' &&
-          currentText[end] === '*' &&
-          currentText[start - 2] !== '*'
-        ) {
-          updatedText = currentText.substring(0, start - 1) + selectedText + currentText.substring(end + 1);
-          newCursorStart = start - 1;
-          newCursorEnd = newCursorStart + selectedText.length;
+          newCursorEnd = start + unformatted.length;
         } else {
           const replacement = `*${selectedText}*`;
           updatedText = currentText.substring(0, start) + replacement + currentText.substring(end);
@@ -228,56 +203,119 @@ const CreateJobModal = ({ open, onClose, onJobCreated, editingJob }: Props) => {
       PaperProps={{
         sx: {
           width: { xs: '100%', sm: 540 },
-          backgroundColor: '#0B0D10',
-          borderLeft: '1px solid rgba(255, 255, 255, 0.08)',
-          boxShadow: 'none !important',
+          backgroundColor: '#0A0C10',
+          borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
+          boxShadow: '-20px 0 50px rgba(0, 0, 0, 0.7) !important',
           display: 'flex',
           flexDirection: 'column',
         }
       }}
     >
-      {/* Drawer Header */}
-      <Box sx={{ p: 2.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box sx={{ p: 0.8, borderRadius: '6px', backgroundColor: 'rgba(99, 102, 241, 0.1)', color: '#818cf8', display: 'flex' }}>
-            <AddJobIcon sx={{ fontSize: 18 }} />
+      {/* Header */}
+      <Box
+        sx={{
+          p: 3,
+          background: 'linear-gradient(180deg, rgba(99, 102, 241, 0.08) 0%, rgba(10, 12, 16, 0) 100%)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box
+            sx={{
+              width: 44,
+              height: 44,
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(6, 182, 212, 0.2) 100%)',
+              border: '1px solid rgba(99, 102, 241, 0.3)',
+              color: '#818cf8',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.15)',
+            }}
+          >
+            <AddJobIcon sx={{ fontSize: 22 }} />
           </Box>
           <Box>
-            <Typography variant="subtitle1" fontWeight={600} sx={{ color: '#F5F7FA', lineHeight: 1.2 }}>
+            <Typography variant="h6" fontWeight={700} sx={{ color: '#F5F7FA', fontSize: '1.1rem', letterSpacing: '-0.01em' }}>
               {editingJob ? 'Edit Job Requisition' : 'Create Job Opening'}
             </Typography>
-            <Typography variant="caption" sx={{ color: '#626975', fontSize: '0.72rem' }}>
+            <Typography variant="caption" sx={{ color: '#969DAA', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.2 }}>
+              <SparklesIcon sx={{ fontSize: 13, color: '#06b6d4' }} />
               {editingJob ? 'Update requisition parameters & description' : 'Publish a new requisition to collect & evaluate candidates'}
             </Typography>
           </Box>
         </Box>
-        <IconButton size="small" onClick={onClose} sx={{ color: '#626975', '&:hover': { color: '#F5F7FA' } }}>
+
+        <IconButton
+          size="small"
+          onClick={onClose}
+          sx={{
+            color: '#969DAA',
+            borderRadius: '8px',
+            backgroundColor: 'rgba(255, 255, 255, 0.04)',
+            border: '1px solid rgba(255, 255, 255, 0.06)',
+            transition: 'all 150ms ease',
+            '&:hover': {
+              color: '#F5F7FA',
+              backgroundColor: 'rgba(255, 255, 255, 0.08)',
+              borderColor: 'rgba(255, 255, 255, 0.15)',
+            }
+          }}
+        >
           <CloseIcon sx={{ fontSize: 18 }} />
         </IconButton>
       </Box>
 
-      {/* Drawer Body Form */}
+      {/* Form Content */}
       <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ p: 3, flexGrow: 1, overflowY: 'auto' }}>
-        {error && <Alert severity="error" sx={{ mb: 2.5, borderRadius: '6px' }}>{error}</Alert>}
+        {error && (
+          <Alert
+            severity="error"
+            sx={{
+              mb: 3,
+              borderRadius: '10px',
+              backgroundColor: 'rgba(244, 63, 94, 0.1)',
+              border: '1px solid rgba(244, 63, 94, 0.2)',
+              color: '#fb7185',
+              '& .MuiAlert-icon': { color: '#fb7185' }
+            }}
+          >
+            {error}
+          </Alert>
+        )}
 
-        <Grid container spacing={2}>
+        <Grid container spacing={2.5}>
           <Grid item xs={12}>
-            <Typography variant="caption" sx={{ color: '#626975', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.6, display: 'block' }}>
-              Job Title
+            <Typography variant="caption" sx={{ color: '#969DAA', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.8, display: 'block' }}>
+              Job Title <Typography component="span" sx={{ color: '#f43f5e' }}>*</Typography>
             </Typography>
             <TextField
               fullWidth
-              placeholder="e.g. MERN Stack Developer"
+              placeholder="e.g. Senior Full Stack Engineer"
               {...register('title')}
               error={!!errors.title}
               helperText={errors.title?.message}
               size="small"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: '#0B0D10',
+                  borderRadius: '8px',
+                  color: '#F5F7FA',
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.12)' },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(99, 102, 241, 0.4)' },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#6366f1', borderWidth: '1.5px' }
+                }
+              }}
             />
           </Grid>
 
           <Grid item xs={12} sm={6}>
-            <Typography variant="caption" sx={{ color: '#626975', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.6, display: 'block' }}>
-              Department
+            <Typography variant="caption" sx={{ color: '#969DAA', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.8, display: 'block' }}>
+              Department <Typography component="span" sx={{ color: '#f43f5e' }}>*</Typography>
             </Typography>
             <TextField
               fullWidth
@@ -286,103 +324,187 @@ const CreateJobModal = ({ open, onClose, onJobCreated, editingJob }: Props) => {
               error={!!errors.department}
               helperText={errors.department?.message}
               size="small"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: '#0B0D10',
+                  borderRadius: '8px',
+                  color: '#F5F7FA',
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.12)' },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(99, 102, 241, 0.4)' },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#6366f1', borderWidth: '1.5px' }
+                }
+              }}
             />
           </Grid>
 
           <Grid item xs={12} sm={6}>
-            <Typography variant="caption" sx={{ color: '#626975', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.6, display: 'block' }}>
-              Location
+            <Typography variant="caption" sx={{ color: '#969DAA', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.8, display: 'block' }}>
+              Location <Typography component="span" sx={{ color: '#f43f5e' }}>*</Typography>
             </Typography>
             <TextField
               fullWidth
-              placeholder="Remote / New York, NY"
+              placeholder="Remote / San Francisco, CA"
               {...register('location')}
               error={!!errors.location}
               helperText={errors.location?.message}
               size="small"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: '#0B0D10',
+                  borderRadius: '8px',
+                  color: '#F5F7FA',
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.12)' },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(99, 102, 241, 0.4)' },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#6366f1', borderWidth: '1.5px' }
+                }
+              }}
             />
           </Grid>
 
           <Grid item xs={12} sm={6}>
-            <Typography variant="caption" sx={{ color: '#626975', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.6, display: 'block' }}>
-              Employment Type
+            <Typography variant="caption" sx={{ color: '#969DAA', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.8, display: 'block' }}>
+              Employment Type <Typography component="span" sx={{ color: '#f43f5e' }}>*</Typography>
             </Typography>
-            <TextField
-              select
-              fullWidth
-              defaultValue="FULL_TIME"
-              inputProps={register('employmentType')}
-              error={!!errors.employmentType}
-              helperText={errors.employmentType?.message}
-              size="small"
-            >
-              <MenuItem value="FULL_TIME">Full Time</MenuItem>
-              <MenuItem value="PART_TIME">Part Time</MenuItem>
-              <MenuItem value="CONTRACT">Contract</MenuItem>
-              <MenuItem value="INTERNSHIP">Internship</MenuItem>
-            </TextField>
+            <Controller
+              name="employmentType"
+              control={control}
+              render={({ field }) => (
+                <FormControl fullWidth error={!!errors.employmentType}>
+                  <Select
+                    {...field}
+                    size="small"
+                    sx={{
+                      backgroundColor: '#0B0D10',
+                      borderRadius: '8px',
+                      color: '#F5F7FA',
+                      '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.12)' },
+                      '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(99, 102, 241, 0.4)' },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#6366f1', borderWidth: '1.5px' }
+                    }}
+                  >
+                    <MenuItem value="FULL_TIME">Full Time</MenuItem>
+                    <MenuItem value="PART_TIME">Part Time</MenuItem>
+                    <MenuItem value="CONTRACT">Contract</MenuItem>
+                    <MenuItem value="INTERNSHIP">Internship</MenuItem>
+                  </Select>
+                </FormControl>
+              )}
+            />
           </Grid>
 
           <Grid item xs={12} sm={6}>
-            <Typography variant="caption" sx={{ color: '#626975', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.6, display: 'block' }}>
-              Experience Required
+            <Typography variant="caption" sx={{ color: '#969DAA', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.8, display: 'block' }}>
+              Experience Required <Typography component="span" sx={{ color: '#f43f5e' }}>*</Typography>
             </Typography>
             <TextField
               fullWidth
-              placeholder="e.g. 2+ Years"
+              placeholder="e.g. 3+ Years"
               {...register('experienceRequired')}
               error={!!errors.experienceRequired}
               helperText={errors.experienceRequired?.message}
               size="small"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: '#0B0D10',
+                  borderRadius: '8px',
+                  color: '#F5F7FA',
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.12)' },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(99, 102, 241, 0.4)' },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#6366f1', borderWidth: '1.5px' }
+                }
+              }}
             />
           </Grid>
 
           <Grid item xs={12}>
-            <Typography variant="caption" sx={{ color: '#626975', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.6, display: 'block' }}>
-              Required Skills (comma separated)
+            <Typography variant="caption" sx={{ color: '#969DAA', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.8, display: 'block' }}>
+              Required Skills (comma separated) <Typography component="span" sx={{ color: '#f43f5e' }}>*</Typography>
             </Typography>
             <TextField
               fullWidth
-              placeholder="React, Node.js, Express, MongoDB"
+              placeholder="React, Node.js, Express, PostgreSQL, TypeScript"
               {...register('requiredSkills')}
               error={!!errors.requiredSkills}
               helperText={errors.requiredSkills?.message}
               size="small"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: '#0B0D10',
+                  borderRadius: '8px',
+                  color: '#F5F7FA',
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.12)' },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(99, 102, 241, 0.4)' },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#6366f1', borderWidth: '1.5px' }
+                }
+              }}
             />
           </Grid>
 
           <Grid item xs={12}>
-            <Divider sx={{ my: 1, borderColor: 'rgba(255,255,255,0.06)' }} />
+            <Divider sx={{ my: 1, borderColor: 'rgba(255, 255, 255, 0.06)' }} />
           </Grid>
 
           {/* Job Description Rich Text Editor Section */}
           <Grid item xs={12}>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-              <Typography variant="caption" sx={{ color: '#626975', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                Job Description & Requirements
+              <Typography variant="caption" sx={{ color: '#969DAA', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Job Description & Requirements <Typography component="span" sx={{ color: '#f43f5e' }}>*</Typography>
               </Typography>
-
-              {/* Mode Toggle (Edit / Formatted Preview) */}
               <ToggleButtonGroup
-                size="small"
                 value={previewTab}
                 exclusive
                 onChange={(_, val) => val && setPreviewTab(val)}
-                sx={{ height: 26 }}
+                size="small"
+                sx={{
+                  height: 26,
+                  '& .MuiToggleButton-root': {
+                    color: '#626975',
+                    fontSize: '0.7rem',
+                    px: 1.2,
+                    py: 0,
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    '&.Mui-selected': {
+                      color: '#818cf8',
+                      backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                    }
+                  }
+                }}
               >
-                <ToggleButton value="edit" sx={{ px: 1, fontSize: '0.7rem', color: '#969DAA' }}>
-                  <EditIcon sx={{ fontSize: 13, mr: 0.5 }} /> Editor
+                <ToggleButton value="edit">
+                  <EditIcon sx={{ fontSize: 13, mr: 0.5 }} /> Write
                 </ToggleButton>
-                <ToggleButton value="preview" sx={{ px: 1, fontSize: '0.7rem', color: '#969DAA' }}>
+                <ToggleButton value="preview">
                   <PreviewIcon sx={{ fontSize: 13, mr: 0.5 }} /> Preview
                 </ToggleButton>
               </ToggleButtonGroup>
             </Box>
 
             {previewTab === 'edit' ? (
-              <Box sx={{ border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#151920' }}>
-                {/* Rich Format Controls Toolbar */}
-                <Box display="flex" alignItems="center" gap={0.5} p={1} sx={{ backgroundColor: '#0B0D10', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <Paper
+                elevation={0}
+                sx={{
+                  bgcolor: '#0B0D10',
+                  border: errors.description ? '1px solid #f43f5e' : '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: '8px',
+                  overflow: 'hidden',
+                  '&:focus-within': {
+                    borderColor: '#6366f1',
+                    borderWidth: '1.5px',
+                  }
+                }}
+              >
+                {/* Markdown Formatting Toolbar */}
+                <Box
+                  sx={{
+                    px: 1.5,
+                    py: 0.8,
+                    bgcolor: 'rgba(255, 255, 255, 0.02)',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5
+                  }}
+                >
                   <Tooltip title="Bold (**text**)">
                     <IconButton size="small" onClick={() => handleFormatInsert('**', '**')} sx={{ color: '#969DAA', p: 0.5 }}>
                       <BoldIcon sx={{ fontSize: 16 }} />
@@ -393,72 +515,128 @@ const CreateJobModal = ({ open, onClose, onJobCreated, editingJob }: Props) => {
                       <ItalicIcon sx={{ fontSize: 16 }} />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title="Section Heading (## Heading)">
-                    <IconButton size="small" onClick={() => handleFormatInsert('\n## ')} sx={{ color: '#969DAA', p: 0.5 }}>
+                  <Tooltip title="Heading (## Title)">
+                    <IconButton size="small" onClick={() => handleFormatInsert('## ')} sx={{ color: '#969DAA', p: 0.5 }}>
                       <HeadingIcon sx={{ fontSize: 16 }} />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title="Bullet List item (* Item)">
-                    <IconButton size="small" onClick={() => handleFormatInsert('\n* ')} sx={{ color: '#969DAA', p: 0.5 }}>
+                  <Tooltip title="Bulleted List (* Item)">
+                    <IconButton size="small" onClick={() => handleFormatInsert('* ')} sx={{ color: '#969DAA', p: 0.5 }}>
                       <ListIcon sx={{ fontSize: 16 }} />
                     </IconButton>
                   </Tooltip>
                 </Box>
 
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={8}
-                  placeholder="Type rich text description..."
+                <textarea
                   {...descriptionRegister}
-                  inputRef={(e) => {
+                  ref={(e) => {
                     descriptionRef(e);
                     textareaRef.current = e;
                   }}
-                  error={!!errors.description}
-                  helperText={errors.description?.message}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      backgroundColor: 'transparent',
-                      border: 'none',
-                      fontSize: '0.82rem',
-                      '& fieldset': { border: 'none' }
-                    }
+                  rows={9}
+                  placeholder="Provide structured job details, responsibilities, and requirements..."
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    padding: '12px 14px',
+                    backgroundColor: 'transparent',
+                    color: '#F5F7FA',
+                    border: 'none',
+                    outline: 'none',
+                    fontFamily: '"Inter", sans-serif',
+                    fontSize: '0.86rem',
+                    lineHeight: 1.5,
+                    resize: 'vertical',
                   }}
                 />
-              </Box>
+              </Paper>
             ) : (
               <Paper
                 elevation={0}
                 sx={{
                   p: 2,
-                  minHeight: 200,
-                  maxHeight: 280,
+                  bgcolor: '#0B0D10',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: '8px',
+                  minHeight: 220,
+                  maxHeight: 320,
                   overflowY: 'auto',
-                  backgroundColor: '#0B0D10',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: '8px'
+                  fontSize: '0.86rem',
+                  color: '#F5F7FA'
                 }}
               >
-                {renderFormattedText(descriptionValue)}
+                {descriptionValue ? renderFormattedText(descriptionValue) : <Typography variant="caption" color="#626975">Nothing to preview yet.</Typography>}
               </Paper>
+            )}
+            {errors.description && (
+              <Typography variant="caption" sx={{ color: '#f43f5e', mt: 0.5, ml: 0.5, display: 'block', fontSize: '0.74rem' }}>
+                {errors.description.message}
+              </Typography>
             )}
           </Grid>
         </Grid>
 
-        {/* Footer Buttons */}
-        <Box sx={{ pt: 3, display: 'flex', gap: 1.5, justifyContent: 'flex-end' }}>
-          <Button onClick={onClose} variant="outlined" size="medium" sx={{ borderRadius: '6px' }}>
+        {/* Footer Actions */}
+        <Box
+          sx={{
+            pt: 4,
+            mt: 4,
+            borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+            display: 'flex',
+            gap: 1.5,
+            justifyContent: 'flex-end',
+          }}
+        >
+          <Button
+            onClick={onClose}
+            variant="outlined"
+            size="medium"
+            sx={{
+              borderRadius: '8px',
+              px: 2.5,
+              py: 1,
+              borderColor: 'rgba(255, 255, 255, 0.12)',
+              color: '#969DAA',
+              fontWeight: 600,
+              fontSize: '0.88rem',
+              '&:hover': {
+                borderColor: 'rgba(255, 255, 255, 0.24)',
+                backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                color: '#F5F7FA',
+              }
+            }}
+          >
             Cancel
           </Button>
+
           <Button
             type="submit"
-            variant="contained"
             disabled={isSubmitting}
+            variant="contained"
             size="medium"
-            sx={{ borderRadius: '6px', backgroundColor: '#6366f1', '&:hover': { backgroundColor: '#4f46e5' } }}
+            startIcon={isSubmitting ? <CircularProgress size={16} color="inherit" /> : <AddJobIcon sx={{ fontSize: 16 }} />}
+            sx={{
+              borderRadius: '8px',
+              px: 3,
+              py: 1,
+              background: 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
+              color: '#FFFFFF',
+              fontWeight: 700,
+              fontSize: '0.88rem',
+              boxShadow: '0 4px 14px rgba(99, 102, 241, 0.35) !important',
+              transition: 'all 200ms ease',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #4f46e5 0%, #0891b2 100%)',
+                boxShadow: '0 6px 20px rgba(99, 102, 241, 0.5) !important',
+                transform: 'translateY(-1px)',
+              },
+              '&:disabled': {
+                opacity: 0.7,
+                color: '#FFFFFF',
+              }
+            }}
           >
-            {isSubmitting ? 'Saving...' : (editingJob ? 'Save & Update Job' : 'Publish Job Opening')}
+            {isSubmitting ? 'Saving Position...' : (editingJob ? 'Update Position' : 'Create Job Opening')}
           </Button>
         </Box>
       </Box>

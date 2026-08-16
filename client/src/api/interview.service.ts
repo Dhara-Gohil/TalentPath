@@ -42,6 +42,11 @@ export const interviewService = {
     return data;
   },
 
+  regenerateCopilotQuestions: async (id: string, targetTopic?: string) => {
+    const { data } = await apiClient.post(`/interviews/${id}/copilot/regenerate-questions`, { targetTopic });
+    return data;
+  },
+
   generateCopilotFeedback: async (id: string, transcript?: string) => {
     const { data } = await apiClient.post(`/interviews/${id}/copilot/generate-feedback`, { transcript });
     return data;

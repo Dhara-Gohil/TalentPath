@@ -109,7 +109,6 @@ const InterviewTracePipeline = ({
   const activeRoundDef = ROUNDS[selectedStepIndex] || ROUNDS[0];
   const activeInterview = interviews.find(i => i.type === activeRoundDef.type);
   const previousCompleted = selectedStepIndex === 0 || isRoundCompleted(ROUNDS[selectedStepIndex - 1].type);
-  const isAdminOrRecruiter = user?.role === 'ADMIN' || user?.role === 'RECRUITER';
 
   const isAssignedToMe = activeInterview && (activeInterview.interviewerId === user?.id || activeInterview.interviewer?.id === user?.id);
   const isOtherInterviewer = isInterviewer && activeInterview && !isAssignedToMe;
@@ -134,8 +133,8 @@ const InterviewTracePipeline = ({
           const isCompletedPending = interview && interview.status === 'COMPLETED' && (!interview.feedback || interview.feedback.length === 0);
           const isScheduled = interview && interview.status === 'SCHEDULED';
           const isPrevDone = idx === 0 || isRoundCompleted(ROUNDS[idx - 1].type);
-          const isSchedulable = !interview && (isPrevDone || isAdminOrRecruiter);
-          const isLocked = !interview && !isPrevDone && !isAdminOrRecruiter;
+          const isSchedulable = !interview && isPrevDone;
+          const isLocked = !interview && !isPrevDone;
 
           const isSelected = selectedStepIndex === idx;
 
@@ -157,16 +156,16 @@ const InterviewTracePipeline = ({
                         ? '1px solid rgba(99, 102, 241, 0.3)'
                         : isSchedulable
                           ? '1px dashed rgba(129, 140, 248, 0.4)'
-                          : '1px solid rgba(255, 255, 255, 0.05)',
+                          : '1px solid rgba(244, 63, 94, 0.2)',
                   borderRadius: '8px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: 1.2,
                   transition: 'all 180ms ease',
-                  opacity: isLocked ? 0.5 : 1,
+                  opacity: isLocked ? 0.6 : 1,
                   '&:hover': {
                     backgroundColor: isSelected ? 'rgba(99, 102, 241, 0.16)' : 'rgba(255, 255, 255, 0.02)',
-                    borderColor: isSelected ? '#6366f1' : 'rgba(255, 255, 255, 0.15)',
+                    borderColor: isSelected ? '#6366f1' : isLocked ? 'rgba(244, 63, 94, 0.3)' : 'rgba(255, 255, 255, 0.15)',
                   }
                 }}
               >
@@ -184,17 +183,23 @@ const InterviewTracePipeline = ({
                       ? 'rgba(16, 185, 129, 0.2)'
                       : isScheduled
                         ? 'rgba(99, 102, 241, 0.2)'
-                        : 'rgba(255, 255, 255, 0.05)',
+                        : isLocked
+                          ? 'rgba(244, 63, 94, 0.1)'
+                          : 'rgba(255, 255, 255, 0.05)',
                     color: isCompleted
                       ? '#10b981'
                       : isScheduled
                         ? '#818cf8'
-                        : '#626975',
+                        : isLocked
+                          ? '#fb7185'
+                          : '#626975',
                     border: isCompleted
                       ? '1px solid rgba(16, 185, 129, 0.4)'
                       : isScheduled
                         ? '1px solid rgba(129, 140, 248, 0.4)'
-                        : '1px solid rgba(255, 255, 255, 0.1)',
+                        : isLocked
+                          ? '1px solid rgba(244, 63, 94, 0.3)'
+                          : '1px solid rgba(255, 255, 255, 0.1)',
                   }}
                   className="font-mono"
                 >
@@ -205,7 +210,7 @@ const InterviewTracePipeline = ({
                   <Typography variant="body2" noWrap fontWeight={600} sx={{ color: isSelected ? '#F5F7FA' : '#969DAA', fontSize: '0.78rem' }}>
                     {round.title}
                   </Typography>
-                  <Typography variant="caption" noWrap sx={{ color: isCompleted ? '#10b981' : isScheduled ? '#818cf8' : isCompletedPending ? '#f59e0b' : '#626975', fontSize: '0.68rem', fontWeight: 500, display: 'block' }}>
+                  <Typography variant="caption" noWrap sx={{ color: isCompleted ? '#10b981' : isScheduled ? '#818cf8' : isCompletedPending ? '#f59e0b' : isLocked ? '#fb7185' : '#626975', fontSize: '0.68rem', fontWeight: 500, display: 'block' }}>
                     {isCompleted ? 'Scorecard Verified' : isCompletedPending ? 'Pending Scorecard' : isScheduled ? 'Session Set' : isSchedulable ? 'Schedulable' : 'Locked'}
                   </Typography>
                 </Box>
@@ -236,7 +241,7 @@ const InterviewTracePipeline = ({
                 width: 8,
                 height: 8,
                 borderRadius: '50%',
-                backgroundColor: activeInterview?.status === 'COMPLETED' ? '#10b981' : activeInterview ? '#818cf8' : previousCompleted ? '#06b6d4' : '#626975'
+                backgroundColor: activeInterview?.status === 'COMPLETED' ? '#10b981' : activeInterview ? '#818cf8' : previousCompleted ? '#06b6d4' : '#fb7185'
               }}
             />
             <Box>
@@ -345,7 +350,7 @@ const InterviewTracePipeline = ({
             )}
 
             {/* Schedulable Trace Point Action */}
-            {!activeInterview && (previousCompleted || isAdminOrRecruiter) && (
+            {!activeInterview && previousCompleted && (
               isInterviewer ? (
                 <Chip
                   size="small"
@@ -366,16 +371,17 @@ const InterviewTracePipeline = ({
             )}
 
             {/* Locked Notice */}
-            {!activeInterview && !previousCompleted && !isAdminOrRecruiter && (
+            {!activeInterview && !previousCompleted && (
               <Chip
                 size="small"
-                icon={<LockIcon sx={{ fontSize: '13px !important', color: '#626975 !important' }} />}
-                label={`Locked — Complete Round ${activeRoundDef.step - 1} Scorecard`}
+                icon={<LockIcon sx={{ fontSize: '13px !important', color: '#fb7185 !important' }} />}
+                label={`Locked — Complete ${ROUNDS[selectedStepIndex - 1]?.title || 'Previous Round'} & Submit Scorecard`}
                 sx={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                  color: '#626975',
-                  border: '1px solid rgba(255, 255, 255, 0.06)',
-                  fontSize: '0.7rem'
+                  backgroundColor: 'rgba(244, 63, 94, 0.1)',
+                  color: '#fb7185',
+                  border: '1px solid rgba(244, 63, 94, 0.25)',
+                  fontSize: '0.72rem',
+                  fontWeight: 600
                 }}
               />
             )}

@@ -9,7 +9,8 @@ import {
   deleteInterview,
   saveTranscript,
   analyzeCopilot,
-  generateCopilotFeedback
+  generateCopilotFeedback,
+  regenerateCopilotQuestions
 } from '../controllers/interview.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
@@ -24,6 +25,7 @@ router.put('/:id', updateInterview as any);
 router.patch('/:id/status', updateStatus as any);
 router.put('/:id/transcript', saveTranscript as any);
 router.post('/:id/copilot/analyze', analyzeCopilot as any);
+router.post('/:id/copilot/regenerate-questions', regenerateCopilotQuestions as any);
 router.post('/:id/copilot/generate-feedback', generateCopilotFeedback as any);
 router.post('/:interviewId/feedback', submitFeedback as any);
 router.delete('/:id', deleteInterview as any);

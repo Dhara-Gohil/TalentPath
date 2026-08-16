@@ -158,7 +158,7 @@ const InterviewWorkspace = () => {
 
   // AI Copilot State
   const [copilotAnalysis, setCopilotAnalysis] = useState<CopilotAnalysis | null>(null);
-  const [analyzing, setAnalyzing] = useState(false);
+  const [regeneratingQuestions, setRegeneratingQuestions] = useState(false);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [usedQuestionTexts, setUsedQuestionTexts] = useState<string[]>([]);
 
@@ -364,19 +364,45 @@ const InterviewWorkspace = () => {
     transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [transcriptLines]);
 
-  // Trigger Copilot analysis (Only for Technical Round and Interviewer/Recruiter/Admin)
-  const runCopilotAnalysis = async (customTranscript?: string, targetTopicOverride?: string | null) => {
+  // 1. Run Copilot Real-Time Analysis (Updates Coverage, Signals, & Insights ONLY — DOES NOT touch suggestedQuestions)
+  const runCopilotAnalysis = async (customTranscript?: string) => {
     if (!id || isCandidateUser || interview?.type !== 'TECHNICAL') return;
     const textToAnalyze = customTranscript ?? getFullTranscriptText();
-    const activeTopic = targetTopicOverride !== undefined ? (targetTopicOverride || undefined) : (selectedTopic || undefined);
-    setAnalyzing(true);
     try {
-      const data: CopilotAnalysis = await interviewService.analyzeCopilot(id, textToAnalyze, activeTopic);
-      setCopilotAnalysis(data);
+      const data: CopilotAnalysis = await interviewService.analyzeCopilot(id, textToAnalyze);
+      setCopilotAnalysis((prev) => ({
+        ...data,
+        suggestedQuestions: (prev?.suggestedQuestions && prev.suggestedQuestions.length > 0)
+          ? prev.suggestedQuestions
+          : (data.suggestedQuestions || [])
+      }));
     } catch (err) {
       console.error('Failed to run AI Copilot analysis', err);
+    }
+  };
+
+  // 2. Dedicated Technical Questions Regenerator (Executed ONLY on Regenerate Button click or Topic Selection)
+  const handleRegenerateQuestions = async (targetTopicOverride?: string | null) => {
+    if (!id || isCandidateUser || interview?.type !== 'TECHNICAL') return;
+    const activeTopic = targetTopicOverride !== undefined ? (targetTopicOverride || undefined) : (selectedTopic || undefined);
+    setRegeneratingQuestions(true);
+    try {
+      const res = await interviewService.regenerateCopilotQuestions(id, activeTopic);
+      if (res && res.suggestedQuestions) {
+        setCopilotAnalysis((prev) => prev ? {
+          ...prev,
+          suggestedQuestions: res.suggestedQuestions
+        } : {
+          coverage: [],
+          suggestedQuestions: res.suggestedQuestions,
+          resumeInsights: [],
+          signals: { answerQuality: 'Moderate', technicalDepth: '', confidenceClarity: '', redFlags: [] }
+        });
+      }
+    } catch (err) {
+      console.error('Failed to regenerate copilot questions', err);
     } finally {
-      setAnalyzing(false);
+      setRegeneratingQuestions(false);
     }
   };
 
@@ -391,13 +417,16 @@ const InterviewWorkspace = () => {
     const count = getTopicQuestionsCount(topicName);
     if (count >= 3) return 'COVERED';
     if (count >= 1) return 'IN_PROGRESS';
-    return (initialStatus as any) || 'GAP';
+    if (initialStatus === 'COVERED' && count > 0) return 'COVERED';
+    if (initialStatus === 'IN_PROGRESS' && count > 0) return 'IN_PROGRESS';
+    return 'GAP';
   };
 
   // Initial Copilot trigger once interview loads (Only for Technical Round)
   useEffect(() => {
     if (interview && !isCandidateUser && interview.type === 'TECHNICAL') {
       runCopilotAnalysis();
+      handleRegenerateQuestions();
     }
   }, [interview?.id, interview?.type, isCandidateUser]);
 
@@ -1120,7 +1149,7 @@ const InterviewWorkspace = () => {
                               <Box
                                 onClick={() => {
                                   setSelectedTopic(item.topic);
-                                  runCopilotAnalysis(getFullTranscriptText(), item.topic);
+                                  handleRegenerateQuestions(item.topic);
                                 }}
                                 sx={{
                                   p: 1.2,
@@ -1164,12 +1193,12 @@ const InterviewWorkspace = () => {
                                     <Typography variant="body2" fontWeight={700} sx={{ color: '#F5F7FA', fontSize: '0.82rem', lineHeight: 1.2 }}>
                                       {item.topic}
                                     </Typography>
-                                    <Typography variant="caption" sx={{ color: isCovered ? '#34d399' : isInProgress ? '#f59e0b' : '#969DAA', fontSize: '0.72rem', display: 'block', mt: 0.2 }}>
+                                    <Typography variant="caption" sx={{ color: isCovered ? '#34d399' : isInProgress ? '#f59e0b' : '#ef4444', fontSize: '0.72rem', display: 'block', mt: 0.2 }}>
                                       {isCovered
                                         ? `${qCount} questions evaluated (Covered)`
                                         : isInProgress
                                           ? `${qCount}/3 questions evaluated so far`
-                                          : 'Not yet evaluated. Click topic to generate questions.'}
+                                          : '0/3 questions evaluated (Gap — Click topic to generate questions)'}
                                     </Typography>
                                   </Box>
                                 </Box>
@@ -1217,9 +1246,9 @@ const InterviewWorkspace = () => {
                       <Button
                         size="small"
                         variant="outlined"
-                        startIcon={analyzing ? <CircularProgress size={12} color="inherit" /> : <RefreshIcon sx={{ fontSize: 14 }} />}
-                        onClick={() => runCopilotAnalysis(getFullTranscriptText(), selectedTopic || undefined)}
-                        disabled={analyzing}
+                        startIcon={regeneratingQuestions ? <CircularProgress size={12} color="inherit" /> : <RefreshIcon sx={{ fontSize: 14 }} />}
+                        onClick={() => handleRegenerateQuestions(selectedTopic || undefined)}
+                        disabled={regeneratingQuestions}
                         sx={{
                           color: '#f59e0b',
                           borderColor: 'rgba(245, 158, 11, 0.4)',
@@ -1235,7 +1264,7 @@ const InterviewWorkspace = () => {
                           }
                         }}
                       >
-                        Regenerate Questions
+                        {regeneratingQuestions ? 'Generating...' : 'Regenerate Questions'}
                       </Button>
                     </Box>
 

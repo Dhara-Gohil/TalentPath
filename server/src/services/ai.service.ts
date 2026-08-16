@@ -123,18 +123,25 @@ export const aiService = {
     candidate: CandidateContext,
     job: JobContext
   ): Promise<StructuredAiEvaluation> {
+    const jobTitle = job?.title || 'Job Position';
+    const jobDesc = job?.description || '';
+    const reqSkillsStr = job?.requiredSkills || '';
+    const candResume = candidate?.resumeText || '';
+    const candSkillsStr = candidate?.skills || '';
+    const candExp = candidate?.experienceYears || 0;
+
     const prompt = `
       You are an expert technical recruiter evaluating a candidate's background and resume against job requirements.
       
       JOB REQUISITION:
-      Title: ${job.title}
-      Description: ${job.description}
-      Required Skills: ${job.requiredSkills}
+      Title: ${jobTitle}
+      Description: ${jobDesc}
+      Required Skills: ${reqSkillsStr}
       
       CANDIDATE PROFILE & RESUME:
-      Resume / Bio: ${candidate.resumeText}
-      Skills: ${candidate.skills}
-      Years of Experience: ${candidate.experienceYears}
+      Resume / Bio: ${candResume}
+      Skills: ${candSkillsStr}
+      Years of Experience: ${candExp}
       
       Based STRICTLY on the candidate's resume text and background compared against job requirements, provide a structured JSON evaluation matching this schema:
       {
@@ -167,18 +174,18 @@ export const aiService = {
     } catch (error: any) {
       console.error('AI Service Fallback triggered (Resume Evaluation):', error?.message || error);
       
-      const reqSkills = job.requiredSkills ? job.requiredSkills.split(',').map((s) => s.trim()).filter(Boolean) : [];
-      const candSkills = candidate.skills ? candidate.skills.split(',').map((s) => s.trim()).filter(Boolean) : [];
+      const reqSkills = reqSkillsStr ? reqSkillsStr.split(',').map((s) => s.trim()).filter(Boolean) : [];
+      const candSkills = candSkillsStr ? candSkillsStr.split(',').map((s) => s.trim()).filter(Boolean) : [];
       const matching = candSkills.filter((s) => reqSkills.some((r) => r.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(r.toLowerCase())));
 
       return {
-        summary: `Candidate possesses ${candidate.experienceYears}+ years experience with skills including ${candidate.skills.slice(0, 80)}. Background shows strong alignment with core job requirements for ${job.title}.`,
+        summary: `Candidate possesses ${candExp}+ years experience with skills including ${candSkillsStr.slice(0, 80)}. Background shows strong alignment with core job requirements for ${jobTitle}.`,
         strengths: candSkills.length > 0 ? candSkills.slice(0, 3).map((s) => `Hands-on expertise in ${s}`) : ['Strong engineering background and domain expertise'],
         weaknesses: ['May require initial onboarding on company-specific architecture workflows'],
         skillMatch: matching.length > 0 ? matching : candSkills.slice(0, 2),
         missingSkills: [],
         recommendation: 'YES',
-        reasoning: `Automated background evaluation based on candidate resume and ${job.title} requisition requirements.`,
+        reasoning: `Automated background evaluation based on candidate resume and ${jobTitle} requisition requirements.`,
       };
     }
   },
@@ -190,15 +197,19 @@ export const aiService = {
     feedbacks: FeedbackContext[],
     roundInterviews?: RoundInterviewData[]
   ): Promise<StructuredInterviewSummary> {
+    const jobTitle = job?.title || 'Job Position';
+    const candSkillsStr = candidate?.skills || '';
+    const candExp = candidate?.experienceYears || 0;
+
     const prompt = `
       You are an executive talent strategist synthesizing 4-round interview scorecards and interviewer evaluations.
       
       TARGET JOB:
-      Title: ${job.title}
+      Title: ${jobTitle}
       
       CANDIDATE:
-      Skills: ${candidate.skills}
-      Experience: ${candidate.experienceYears} Years
+      Skills: ${candSkillsStr}
+      Experience: ${candExp} Years
       
       SUBMITTED INTERVIEW SCORECARDS & NOTES:
       ${
@@ -293,10 +304,10 @@ export const aiService = {
       const culturalTakeaway = roundInterviews?.find((r) => r.roundType === 'CULTURAL')?.feedback?.[0]?.comments || 'Good cultural fit and team collaboration alignment.';
 
       return {
-        summary: `The candidate brings ${candidate.experienceYears}+ years of hands-on experience proficient in ${candidate.skills.slice(0, 70)}. Based on scorecards submitted across interview rounds, the candidate demonstrated solid technical depth and clear communication for the ${job.title} requisition.`,
+        summary: `The candidate brings ${candExp}+ years of hands-on experience proficient in ${candSkillsStr.slice(0, 70)}. Based on scorecards submitted across interview rounds, the candidate demonstrated solid technical depth and clear communication for the ${jobTitle} requisition.`,
         recommendation: topRec,
-        reasoning: `Synthesized evaluation compiled from interviewer scorecards and domain feedback for ${job.title}.`,
-        strengths: verifiedStrengths.length > 0 ? verifiedStrengths.slice(0, 3) : [`Strong proficiency in ${candidate.skills.split(',')[0] || 'core stack'}`, 'Structured communication and problem-solving approach'],
+        reasoning: `Synthesized evaluation compiled from interviewer scorecards and domain feedback for ${jobTitle}.`,
+        strengths: verifiedStrengths.length > 0 ? verifiedStrengths.slice(0, 3) : [`Strong proficiency in ${candSkillsStr.split(',')[0] || 'core stack'}`, 'Structured communication and problem-solving approach'],
         weaknesses: identifiedWeaknesses.length > 0 ? identifiedWeaknesses.slice(0, 3) : ['Could expand further on large-scale product architecture trade-offs'],
         roundAnalysis: {
           technical: techTakeaway,
@@ -324,14 +335,19 @@ export const aiService = {
     skills: string;
     resumeText: string;
   }): Promise<StructuredCandidateProfileSummary> {
+    const candName = candidate?.name || 'Candidate';
+    const candExp = candidate?.experienceYears || 0;
+    const candSkillsStr = candidate?.skills || '';
+    const candResume = candidate?.resumeText || '';
+
     const prompt = `
       You are an executive talent strategist analyzing a candidate's background and resume.
       
       CANDIDATE DETAILS:
-      Name: ${candidate.name}
-      Years of Experience: ${candidate.experienceYears}
-      Skills: ${candidate.skills}
-      Resume / Bio: ${candidate.resumeText}
+      Name: ${candName}
+      Years of Experience: ${candExp}
+      Skills: ${candSkillsStr}
+      Resume / Bio: ${candResume}
       
       Generate an executive career profile analysis for this candidate in JSON format matching this schema:
       {
@@ -361,13 +377,13 @@ export const aiService = {
       return JSON.parse(content) as StructuredCandidateProfileSummary;
     } catch (error: any) {
       console.error('AI Service Fallback triggered (Candidate Profile Summary):', error?.message || error);
-      const skillsList = candidate.skills ? candidate.skills.split(',').map((s) => s.trim()).filter(Boolean) : [];
+      const skillsList = candSkillsStr ? candSkillsStr.split(',').map((s) => s.trim()).filter(Boolean) : [];
 
       return {
-        executiveSummary: `${candidate.name || 'Candidate'} is a skilled professional with ${candidate.experienceYears}+ years of experience proficient in ${candidate.skills.slice(0, 80) || 'software engineering'}. Background demonstrates solid competence in building application features and engineering workflows.`,
+        executiveSummary: `${candName} is a skilled professional with ${candExp}+ years of experience proficient in ${candSkillsStr.slice(0, 80) || 'software engineering'}. Background demonstrates solid competence in building application features and engineering workflows.`,
         coreCompetencies: skillsList.length > 0 ? skillsList.slice(0, 5) : ['Software Engineering', 'System Architecture', 'Problem Solving', 'Agile Delivery'],
         keyStrengths: [
-          `${candidate.experienceYears}+ years of hands-on industry experience`,
+          `${candExp}+ years of hands-on industry experience`,
           skillsList.length > 0 ? `Strong expertise in ${skillsList.slice(0, 2).join(' and ')}` : 'Solid technical background',
           'Structured problem-solving and domain execution',
         ],
@@ -388,22 +404,26 @@ export const aiService = {
       return [];
     }
 
+    const candSkillsStr = candidate?.skills || '';
+    const candExp = candidate?.experienceYears || 0;
+    const candResume = candidate?.resumeText || '';
+
     const prompt = `
       You are an AI job recommendation engine evaluating open job requisitions for a candidate.
       
       CANDIDATE PROFILE:
-      Experience Years: ${candidate.experienceYears}
-      Skills: ${candidate.skills}
-      Resume: ${candidate.resumeText}
+      Experience Years: ${candExp}
+      Skills: ${candSkillsStr}
+      Resume: ${candResume}
       
       AVAILABLE OPEN JOBS:
       ${openJobs
         .map(
           (j) => `
         Job ID: ${j.id}
-        Title: ${j.title} (${j.department})
-        Required Skills: ${j.requiredSkills}
-        Description: ${j.description}
+        Title: ${j.title || 'N/A'} (${j.department || 'N/A'})
+        Required Skills: ${j.requiredSkills || 'N/A'}
+        Description: ${j.description || 'N/A'}
       `
         )
         .join('\n')}
@@ -444,7 +464,7 @@ export const aiService = {
       return openJobs.map((j) => ({
         jobId: j.id,
         matchScore: 75,
-        matchingSkills: candidate.skills ? candidate.skills.split(',').map((s) => s.trim()) : [],
+        matchingSkills: candSkillsStr ? candSkillsStr.split(',').map((s) => s.trim()) : [],
         missingSkills: [],
         fitRationale: 'Automated skill alignment recommendation.',
       }));
@@ -459,6 +479,14 @@ export const aiService = {
     transcript: string,
     targetTopic?: string
   ): Promise<CopilotAnalysis> {
+    const jobTitle = job?.title || 'Technical Role';
+    const reqSkillsStr = job?.requiredSkills || 'Software Engineering, System Design';
+    const jobDesc = job?.description || '';
+    const candName = candidate?.name || 'Candidate';
+    const candSkillsStr = candidate?.skills || 'Engineering';
+    const candExp = candidate?.experienceYears || 0;
+    const candResumeText = candidate?.resumeText || '';
+
     const topicInstruction = targetTopic
       ? `CRITICAL INSTRUCTION: Focus specifically on generating deep-dive technical probing questions for the topic: "${targetTopic}". Cross-reference candidate's resume experience with job requirements for "${targetTopic}".`
       : 'Cross-reference candidate resume profile against Job Description requirements to generate high-impact technical questions.';
@@ -467,17 +495,17 @@ export const aiService = {
       You are an elite Technical AI Copilot assisting an interviewer during a technical evaluation.
       
       JOB DESCRIPTION (JD):
-      Title: ${job.title}
-      Required Technical Skills: ${job.requiredSkills}
-      Full JD Description: ${job.description}
+      Title: ${jobTitle}
+      Required Technical Skills: ${reqSkillsStr}
+      Full JD Description: ${jobDesc}
       
       CANDIDATE RESUME PROFILE:
-      Name: ${candidate.name || 'Candidate'}
-      Claimed Skills: ${candidate.skills}
-      Experience Years: ${candidate.experienceYears}
-      Full Resume Text: ${candidate.resumeText.slice(0, 1000)}
+      Name: ${candName}
+      Claimed Skills: ${candSkillsStr}
+      Experience Years: ${candExp}
+      Full Resume Text: ${candResumeText.slice(0, 1000)}
       
-      INTERVIEW ROUND: ${interviewType}
+      INTERVIEW ROUND: ${interviewType || 'TECHNICAL'}
       ${targetTopic ? `SELECTED FOCUS TOPIC: ${targetTopic}` : ''}
       
       LIVE TRANSCRIPT DIALOGUE SO FAR:
@@ -517,6 +545,7 @@ export const aiService = {
     try {
       const response = await openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
+        max_tokens: 1000,
         messages: [
           { role: 'system', content: 'You are an expert Technical AI Copilot cross-referencing JD and candidate resume. Respond ONLY with valid JSON.' },
           { role: 'user', content: prompt },
@@ -533,7 +562,7 @@ export const aiService = {
     } catch (error: any) {
       console.error('AI Copilot Live Analysis Fallback triggered:', error?.message || error);
       
-      const reqSkills = job.requiredSkills.split(',').map((s) => s.trim()).filter(Boolean);
+      const reqSkills = reqSkillsStr.split(',').map((s) => s.trim()).filter(Boolean);
       const coveredInTranscript = (transcript || '').toLowerCase();
       
       const coverage: CopilotCoverageTopic[] = reqSkills.map((skill) => {
@@ -558,11 +587,11 @@ export const aiService = {
         ],
         suggestedQuestions: dynamicQuestions,
         resumeInsights: [
-          `Candidate resume highlights ${candidate.experienceYears} years experience with skills: ${candidate.skills}`,
-          `Cross-reference candidate resume project experience with ${job.title} job specifications for ${activeTopic}.`
+          `Candidate resume highlights ${candExp} years experience with skills: ${candSkillsStr}`,
+          `Cross-reference candidate resume project experience with ${jobTitle} job specifications for ${activeTopic}.`
         ],
         signals: {
-          answerQuality: transcript.length > 100 ? 'Strong' : 'Moderate',
+          answerQuality: (transcript || '').length > 100 ? 'Strong' : 'Moderate',
           technicalDepth: `Evaluated technical domain alignment for ${activeTopic}`,
           confidenceClarity: 'Clear and structured responses',
           redFlags: [],
@@ -578,6 +607,12 @@ export const aiService = {
     interviewType: string,
     transcript: string
   ): Promise<CopilotFeedbackDraft> {
+    const jobTitle = job?.title || 'Technical Role';
+    const reqSkillsStr = job?.requiredSkills || 'Software Engineering';
+    const candName = candidate?.name || 'Candidate';
+    const candSkillsStr = candidate?.skills || 'Engineering';
+    const candExp = candidate?.experienceYears || 0;
+
     const candidateAnswersList = (transcript || '')
       .split('\n')
       .filter(l => l.toLowerCase().startsWith('candidate:'))
@@ -592,15 +627,15 @@ export const aiService = {
       You are an executive talent strategist synthesizing a completed live interview transcript into a final interview scorecard & summary.
       
       JOB ROLE:
-      Title: ${job.title}
-      Required Skills: ${job.requiredSkills}
+      Title: ${jobTitle}
+      Required Skills: ${reqSkillsStr}
       
       CANDIDATE:
-      Name: ${candidate.name || 'Candidate'}
-      Skills: ${candidate.skills}
-      Years Experience: ${candidate.experienceYears}
+      Name: ${candName}
+      Skills: ${candSkillsStr}
+      Years Experience: ${candExp}
       
-      INTERVIEW ROUND TYPE: ${interviewType}
+      INTERVIEW ROUND TYPE: ${interviewType || 'TECHNICAL'}
       
       FULL LIVE INTERVIEW TRANSCRIPT:
       ${transcript || '(No transcript dialogue recorded)'}
@@ -612,7 +647,7 @@ export const aiService = {
       The "summary", "comments", "strengths", and "weaknesses" MUST BE STRICTLY AND DIRECTLY SYNTHESIZED FROM THE CANDIDATE'S ACTUAL TRANSCRIPT DIALOGUE AND ANSWERS ("${actualAnswersText}").
       - DO NOT invent or hallucinate candidate statements that were not exchanged during this interview session.
       - If the candidate answered questions, summarize their exact answers, technical points, and communication style.
-      - If minimal text was recorded, state clearly what was discussed during the ${interviewType} round.
+      - If minimal text was recorded, state clearly what was discussed during the ${interviewType || 'technical'} round.
       
       Synthesize the interview and generate a structured JSON feedback draft matching EXACTLY this schema:
       {
@@ -649,18 +684,102 @@ export const aiService = {
       
       const lastAnswers = candidateAnswersList.length > 0 
         ? `The candidate stated: "${candidateAnswersList.join('; ').slice(0, 220)}".` 
-        : `Candidate completed the ${interviewType} interview session.`;
+        : `Candidate completed the ${interviewType || 'technical'} interview session.`;
 
       return {
         technicalRating: candidateAnswersList.length > 0 ? 8 : 7,
         communicationRating: candidateAnswersList.length > 0 ? 8 : 7,
         problemSolvingRating: candidateAnswersList.length > 0 ? 8 : 7,
         cultureFitRating: candidateAnswersList.length > 0 ? 8 : 7,
-        strengths: `• Clear communication and active engagement during ${interviewType} round\n• ${candidateAnswersList.length > 0 ? `Discussed: ${candidateAnswersList[0].slice(0, 80)}` : `Demonstrated background alignment with ${job.title}`}`,
+        strengths: `• Clear communication and active engagement during ${interviewType || 'technical'} round\n• ${candidateAnswersList.length > 0 ? `Discussed: ${candidateAnswersList[0].slice(0, 80)}` : `Demonstrated background alignment with ${jobTitle}`}`,
         weaknesses: `• Could elaborate further on edge-case recovery and architectural trade-offs`,
-        comments: `Candidate actively answered questions during the ${interviewType} interview round. ${lastAnswers}`,
+        comments: `Candidate actively answered questions during the ${interviewType || 'technical'} interview round. ${lastAnswers}`,
         recommendation: 'YES',
-        summary: `During the ${interviewType} round for ${job.title}, ${candidate.name || 'the candidate'} exchanged live dialogue. ${lastAnswers} Overall demonstrated clear domain alignment.`,
+        summary: `During the ${interviewType || 'technical'} round for ${jobTitle}, ${candName} exchanged live dialogue. ${lastAnswers} Overall demonstrated clear domain alignment.`,
+      };
+    }
+  },
+
+  // 7. AI Copilot: Dedicated Technical Questions Generator Endpoint
+  async generateCopilotQuestions(
+    candidate: CandidateContext & { name?: string },
+    job: JobContext,
+    interviewType: string,
+    transcript: string,
+    targetTopic?: string
+  ): Promise<{ suggestedQuestions: CopilotSuggestedQuestion[] }> {
+    const reqSkillsStr = job?.requiredSkills || 'Software Engineering, System Design';
+    const activeTopic = targetTopic || (reqSkillsStr.split(',')[0] || 'Technical Stack').trim();
+
+    try {
+      const jobTitle = job?.title || 'Technical Role';
+      const candName = candidate?.name || 'Candidate';
+      const candSkillsStr = candidate?.skills || 'Engineering';
+      const candExp = candidate?.experienceYears || 0;
+      const candResumeText = candidate?.resumeText || '';
+
+      const reqSkillsList = reqSkillsStr.split(',').map(s => s.trim()).filter(Boolean);
+      const candSkillsList = candSkillsStr.split(',').map(s => s.trim()).filter(Boolean);
+      
+      const matchedSkills = reqSkillsList.filter(s =>
+        candSkillsList.some(c => c.toLowerCase() === s.toLowerCase()) ||
+        candResumeText.toLowerCase().includes(s.toLowerCase())
+      );
+      const missingSkills = reqSkillsList.filter(s => !matchedSkills.includes(s));
+
+      const prompt = `
+        You are an elite Technical AI Copilot assisting an interviewer during a technical evaluation.
+        
+        TARGET JOB ROLE: ${jobTitle}
+        JD REQUIRED SKILLS: ${reqSkillsStr}
+        CANDIDATE: ${candName} (${candExp} years experience)
+        CANDIDATE RESUME SKILLS: ${candSkillsStr}
+        
+        SKILLS ANALYSIS:
+        - MATCHED SKILLS (In JD & Resume): ${matchedSkills.length > 0 ? matchedSkills.join(', ') : 'None identified'}
+        - MISSING SKILLS (In JD but missing from Resume): ${missingSkills.length > 0 ? missingSkills.join(', ') : 'All skills matched'}
+        ${targetTopic ? `SELECTED FOCUS TOPIC: ${targetTopic}` : ''}
+        
+        GENERATE EXACTLY 4 HIGH-IMPACT TECHNICAL QUESTIONS:
+        1. For Matched Skills: Generate technical verification questions that test deep technical mastery, edge cases, and architectural trade-offs (Do NOT assume mastery just because it is on the resume).
+        2. For Missing Skills: Generate technical probing questions targeting required JD skills that are absent from the candidate's resume to evaluate unlisted capability.
+        
+        Provide structured JSON matching EXACTLY this schema:
+        {
+          "suggestedQuestions": [
+            {
+              "question": "Deep-dive technical probing question",
+              "category": "Matched Skill Verification OR Missing Skill Probe",
+              "reasoning": "Rationale for technical depth or evaluating skill gap"
+            }
+          ]
+        }
+      `;
+
+      const response = await openai.chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        max_tokens: 1000,
+        messages: [
+          { role: 'system', content: 'You are an expert Technical AI Copilot. Respond ONLY with valid JSON.' },
+          { role: 'user', content: prompt },
+        ],
+        response_format: { type: 'json_object' },
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error('Invalid response payload from AI Copilot questions service');
+      }
+
+      const parsed = JSON.parse(content);
+      if (parsed && Array.isArray(parsed.suggestedQuestions) && parsed.suggestedQuestions.length > 0) {
+        return parsed;
+      }
+      return { suggestedQuestions: getDynamicTopicQuestions(activeTopic) };
+    } catch (error: any) {
+      console.error('AI Copilot Questions Generator Fallback triggered:', error?.message || error);
+      return {
+        suggestedQuestions: getDynamicTopicQuestions(activeTopic)
       };
     }
   }

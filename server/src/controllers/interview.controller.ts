@@ -158,3 +158,17 @@ export const generateCopilotFeedback = async (req: AuthRequest, res: Response) =
   }
 };
 
+export const regenerateCopilotQuestions = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { targetTopic } = req.body || {};
+    const result = await interviewService.regenerateCopilotQuestions(id, targetTopic);
+    res.json(result);
+  } catch (error: any) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
+    res.status(500).json({ error: error.message || 'Error regenerating copilot questions' });
+  }
+};
+
