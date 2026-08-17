@@ -555,7 +555,7 @@ const CandidateList = () => {
                           onClick={() => navigate(`/candidates/${candidate.id}`)}
                           sx={{ borderRadius: '6px', fontSize: '0.72rem', py: 0.3 }}
                         >
-                          View Dossier
+                          View
                         </Button>
                       </Box>
                     </TableCell>
