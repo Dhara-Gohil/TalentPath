@@ -12,6 +12,11 @@ export const interviewService = {
     return data;
   },
 
+  getInterviewSync: async (id: string): Promise<{ id: string; status: InterviewStatus; transcript?: string; updatedAt: string }> => {
+    const { data } = await apiClient.get<{ id: string; status: InterviewStatus; transcript?: string; updatedAt: string }>(`/interviews/${id}/sync`);
+    return data;
+  },
+
   createInterview: async (payload: ScheduleInterviewInput): Promise<Interview> => {
     const { data } = await apiClient.post<Interview>('/interviews', payload);
     return data;

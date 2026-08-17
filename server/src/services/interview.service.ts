@@ -24,8 +24,19 @@ export const interviewService = {
 
     return prisma.interview.findMany({
       where: whereClause,
-      include: {
-        candidate: { select: { id: true, name: true, job: { select: { title: true } } } },
+      select: {
+        id: true,
+        candidateId: true,
+        interviewerId: true,
+        scheduledAt: true,
+        duration: true,
+        type: true,
+        status: true,
+        meetingLink: true,
+        notes: true,
+        createdAt: true,
+        updatedAt: true,
+        candidate: { select: { id: true, name: true, email: true, job: { select: { title: true } } } },
         interviewer: { select: { id: true, name: true, email: true } },
       },
       orderBy: { scheduledAt: 'asc' },
@@ -35,10 +46,53 @@ export const interviewService = {
   async getInterviewById(id: string) {
     const interview = await prisma.interview.findUnique({
       where: { id },
-      include: {
-        candidate: true,
+      select: {
+        id: true,
+        candidateId: true,
+        interviewerId: true,
+        scheduledAt: true,
+        duration: true,
+        type: true,
+        status: true,
+        meetingLink: true,
+        notes: true,
+        transcript: true,
+        createdAt: true,
+        updatedAt: true,
+        candidate: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            experienceYears: true,
+            skills: true,
+            status: true,
+            jobId: true,
+            userId: true,
+            job: { select: { id: true, title: true, department: true } },
+          },
+        },
         interviewer: { select: { id: true, name: true, email: true } },
         feedback: true,
+      },
+    });
+
+    if (!interview) {
+      throw { statusCode: 404, message: 'Interview not found' };
+    }
+
+    return interview;
+  },
+
+  async getInterviewSync(id: string) {
+    const interview = await prisma.interview.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        status: true,
+        transcript: true,
+        updatedAt: true,
       },
     });
 

@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Card, Grid, TextField, Button, Chip, Paper, Alert,
-  CircularProgress, Stepper, Step, StepLabel, StepContent, Link, List
+  CircularProgress, Stepper, Step, StepLabel, StepContent, Link, List,
+  Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Checkbox, FormControlLabel,
+  Skeleton
 } from '@mui/material';
 import {
   WorkOutline as WorkIcon,
@@ -17,9 +19,14 @@ import {
   AutoAwesome as AiIcon,
   CheckCircle as CheckIcon,
   FileUpload as UploadIcon,
+  Bookmark as BookmarkIcon,
+  Add as AddIcon,
+  Delete as DeleteIcon,
+  Edit as EditIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { candidateService } from '../api/candidate.service';
-import type { CandidateProfile, CandidateProfileSummary, SuitableJobItem, MyCandidateApplication, CandidateStatus } from '../api/types';
+import type { CandidateProfile, CandidateProfileSummary, SuitableJobItem, MyCandidateApplication, CandidateStatus, SavedResume } from '../api/types';
 import { candidateStatusColor } from '../theme/statusColors';
 import ApplyJobModal from '../components/ApplyJobModal';
 import { renderFormattedText } from '../utils/textFormatter';
@@ -72,10 +79,109 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
   const [appsLoading, setAppsLoading] = useState(false);
   const [appsError, setAppsError] = useState('');
 
+  // Saved Resumes Repository State
+  const [savedResumes, setSavedResumes] = useState<SavedResume[]>([]);
+  const [resumesLoading, setResumesLoading] = useState(false);
+  const [resumeModalOpen, setResumeModalOpen] = useState(false);
+  const [editingResumeId, setEditingResumeId] = useState<string | null>(null);
+  const [newResumeTitle, setNewResumeTitle] = useState('');
+  const [newResumeText, setNewResumeText] = useState('');
+  const [newResumeAsDefault, setNewResumeAsDefault] = useState(false);
+  const [savingResume, setSavingResume] = useState(false);
+  const [resumeActionError, setResumeActionError] = useState('');
+
   // Load Profile on mount
   useEffect(() => {
     loadProfile();
+    loadSavedResumes();
   }, []);
+
+  const loadSavedResumes = async () => {
+    setResumesLoading(true);
+    try {
+      const data = await candidateService.getSavedResumes();
+      setSavedResumes(data);
+    } catch (err) {
+      console.error('Failed to load saved resumes', err);
+    } finally {
+      setResumesLoading(false);
+    }
+  };
+
+  const handleOpenAddResumeModal = () => {
+    setEditingResumeId(null);
+    setNewResumeTitle('');
+    setNewResumeText('');
+    setNewResumeAsDefault(false);
+    setResumeActionError('');
+    setResumeModalOpen(true);
+  };
+
+  const handleOpenEditResumeModal = (sr: SavedResume) => {
+    setEditingResumeId(sr.id);
+    setNewResumeTitle(sr.title);
+    setNewResumeText(sr.resumeText);
+    setNewResumeAsDefault(sr.isDefault);
+    setResumeActionError('');
+    setResumeModalOpen(true);
+  };
+
+  const handleSaveSavedResume = async () => {
+    if (!newResumeTitle.trim()) {
+      setResumeActionError('Please enter a title for this resume.');
+      return;
+    }
+    if (!newResumeText.trim() || newResumeText.trim().length < 10) {
+      setResumeActionError('Resume text must be at least 10 characters.');
+      return;
+    }
+
+    setSavingResume(true);
+    setResumeActionError('');
+    try {
+      if (editingResumeId) {
+        await candidateService.updateSavedResume(editingResumeId, {
+          title: newResumeTitle.trim(),
+          resumeText: newResumeText.trim(),
+          setAsDefault: newResumeAsDefault,
+        });
+      } else {
+        await candidateService.createSavedResume({
+          title: newResumeTitle.trim(),
+          resumeText: newResumeText.trim(),
+          setAsDefault: newResumeAsDefault,
+        });
+      }
+      setResumeModalOpen(false);
+      await loadSavedResumes();
+      await loadProfile();
+    } catch (err: any) {
+      setResumeActionError(err.response?.data?.error || err.message || 'Failed to save resume');
+    } finally {
+      setSavingResume(false);
+    }
+  };
+
+  const handleDeleteSavedResume = async (resumeId: string) => {
+    if (!window.confirm('Are you sure you want to delete this saved resume from your repository?')) return;
+    try {
+      await candidateService.deleteSavedResume(resumeId);
+      await loadSavedResumes();
+      await loadProfile();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to delete saved resume');
+    }
+  };
+
+  const handleSetDefaultResume = async (resumeId: string) => {
+    try {
+      await candidateService.setDefaultResume(resumeId);
+      await loadSavedResumes();
+      await loadProfile();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to set default resume');
+    }
+  };
 
   // Trigger tab data fetching when tab prop changes
   useEffect(() => {
@@ -245,8 +351,42 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
 
   if (profileLoading && tab === 'profile') {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-        <CircularProgress sx={{ color: '#6366f1' }} />
+      <Box sx={{ width: '100%' }}>
+        <Paper elevation={0} sx={{ p: 3, backgroundColor: '#0B0D10', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '16px', mb: 3 }}>
+          <Skeleton variant="text" width={280} height={32} sx={{ bgcolor: 'rgba(255,255,255,0.06)', mb: 1 }} />
+          <Skeleton variant="text" width={420} height={20} sx={{ bgcolor: 'rgba(255,255,255,0.04)' }} />
+        </Paper>
+        <Grid container spacing={3}>
+          <Grid item xs={12} lg={7}>
+            <Card sx={{ p: 3.5, backgroundColor: '#0B0D10', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '16px' }}>
+              <Skeleton variant="text" width={220} height={28} sx={{ bgcolor: 'rgba(255,255,255,0.06)', mb: 3 }} />
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <Skeleton variant="rounded" height={44} sx={{ bgcolor: 'rgba(255,255,255,0.04)', borderRadius: '8px', mb: 2 }} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Skeleton variant="rounded" height={44} sx={{ bgcolor: 'rgba(255,255,255,0.04)', borderRadius: '8px', mb: 2 }} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Skeleton variant="rounded" height={44} sx={{ bgcolor: 'rgba(255,255,255,0.04)', borderRadius: '8px', mb: 2 }} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Skeleton variant="rounded" height={44} sx={{ bgcolor: 'rgba(255,255,255,0.04)', borderRadius: '8px', mb: 2 }} />
+                </Grid>
+                <Grid item xs={12}>
+                  <Skeleton variant="rounded" height={140} sx={{ bgcolor: 'rgba(255,255,255,0.04)', borderRadius: '8px' }} />
+                </Grid>
+              </Grid>
+            </Card>
+          </Grid>
+          <Grid item xs={12} lg={5}>
+            <Card sx={{ p: 3.5, backgroundColor: '#0B0D10', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '16px' }}>
+              <Skeleton variant="text" width={200} height={28} sx={{ bgcolor: 'rgba(255,255,255,0.06)', mb: 2 }} />
+              <Skeleton variant="rounded" height={100} sx={{ bgcolor: 'rgba(255,255,255,0.04)', borderRadius: '8px', mb: 2 }} />
+              <Skeleton variant="rounded" height={80} sx={{ bgcolor: 'rgba(255,255,255,0.04)', borderRadius: '8px' }} />
+            </Card>
+          </Grid>
+        </Grid>
       </Box>
     );
   }
@@ -494,9 +634,9 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
                     </Grid>
 
                     <Grid item xs={12}>
-                      <Box display="flex" alignItems="center" justifyContent="space-between" mb={0.8}>
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <Typography variant="caption" sx={{ color: '#C3C9D5', fontWeight: 600 }}>
+                      <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1} mb={1}>
+                        <Box display="flex" alignItems="center" flexWrap="wrap" gap={1}>
+                          <Typography variant="caption" sx={{ color: '#C3C9D5', fontWeight: 600, whiteSpace: 'nowrap' }}>
                             Candidate Stored Resume / Bio Text
                           </Typography>
                           {profile.resumeText && (
@@ -511,12 +651,13 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
                                 backgroundColor: 'rgba(16, 185, 129, 0.15)',
                                 color: '#34d399',
                                 border: '1px solid rgba(16, 185, 129, 0.3)',
+                                whiteSpace: 'nowrap'
                               }}
                             />
                           )}
                         </Box>
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <Typography variant="caption" sx={{ color: '#626975', fontSize: '0.72rem' }}>
+                        <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
+                          <Typography variant="caption" sx={{ color: '#626975', fontSize: '0.72rem', whiteSpace: 'nowrap' }}>
                             {profile.resumeText.length} chars
                           </Typography>
                           <Button
@@ -528,6 +669,7 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
                               py: 0.2,
                               px: 1,
                               fontSize: '0.72rem',
+                              whiteSpace: 'nowrap',
                               borderRadius: '6px',
                               color: '#818cf8',
                               borderColor: 'rgba(99, 102, 241, 0.3)',
@@ -736,8 +878,291 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
               )}
             </Card>
           </Grid>
+
+          {/* Saved Resume History Repository Section */}
+          <Grid item xs={12}>
+            <Card
+              sx={{
+                p: 3.5,
+                backgroundColor: '#0B0D10',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '16px',
+                mt: 1,
+              }}
+            >
+              <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1.5} mb={2.5}>
+                <Box display="flex" alignItems="center" gap={1.5}>
+                  <BookmarkIcon sx={{ color: '#6366f1', fontSize: 24 }} />
+                  <Box>
+                    <Typography variant="h6" fontWeight={700} sx={{ color: '#F5F7FA', fontSize: '1.05rem' }}>
+                      Saved Resumes Repository & History ({savedResumes.length})
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#969DAA', fontSize: '0.78rem' }}>
+                      Store and manage multiple versions of your resume to use directly during job applications.
+                    </Typography>
+                  </Box>
+                </Box>
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<AddIcon sx={{ fontSize: 16 }} />}
+                  onClick={handleOpenAddResumeModal}
+                  sx={{
+                    borderRadius: '8px',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    whiteSpace: 'nowrap',
+                    backgroundColor: '#6366f1',
+                    color: '#ffffff',
+                    '&:hover': { backgroundColor: '#4f46e5' },
+                  }}
+                >
+                  Save New Resume to History
+                </Button>
+              </Box>
+
+              {resumesLoading ? (
+                <Grid container spacing={2}>
+                  {[1, 2, 3].map((i) => (
+                    <Grid item xs={12} sm={6} md={4} key={i}>
+                      <Paper sx={{ p: 2.5, backgroundColor: '#0F1219', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                        <Skeleton variant="text" width="70%" height={24} sx={{ bgcolor: 'rgba(255,255,255,0.06)', mb: 1 }} />
+                        <Skeleton variant="text" width="40%" height={16} sx={{ bgcolor: 'rgba(255,255,255,0.04)', mb: 2 }} />
+                        <Skeleton variant="rounded" height={80} sx={{ bgcolor: 'rgba(255,255,255,0.03)', borderRadius: '6px', mb: 2 }} />
+                        <Box display="flex" justifyContent="space-between">
+                          <Skeleton variant="text" width={80} height={20} sx={{ bgcolor: 'rgba(255,255,255,0.04)' }} />
+                          <Skeleton variant="circular" width={24} height={24} sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} />
+                        </Box>
+                      </Paper>
+                    </Grid>
+                  ))}
+                </Grid>
+              ) : savedResumes.length === 0 ? (
+                <Box textAlign="center" py={4} sx={{ backgroundColor: '#0F1219', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.08)' }}>
+                  <ResumeIcon sx={{ fontSize: 36, color: '#626975', mb: 1 }} />
+                  <Typography variant="body2" sx={{ color: '#969DAA', fontWeight: 600, mb: 0.5 }}>
+                    No saved resume history in your repository yet.
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#626975', display: 'block', mb: 2, maxWidth: 500, mx: 'auto' }}>
+                    Save different versions of your resume (e.g., Senior Full Stack, Frontend Specialist, Technical Lead) to easily select between them when applying for jobs.
+                  </Typography>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<AddIcon sx={{ fontSize: 14 }} />}
+                    onClick={handleOpenAddResumeModal}
+                    sx={{ borderRadius: '8px', fontSize: '0.75rem', color: '#818cf8', borderColor: 'rgba(129, 140, 248, 0.3)' }}
+                  >
+                    Add Your First Saved Resume
+                  </Button>
+                </Box>
+              ) : (
+                <Grid container spacing={2}>
+                  {savedResumes.map((sr) => (
+                    <Grid item xs={12} sm={6} md={4} key={sr.id}>
+                      <Paper
+                        elevation={0}
+                        sx={{
+                          p: 2.5,
+                          height: '100%',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          backgroundColor: '#0F1219',
+                          border: sr.isDefault ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
+                          borderRadius: '12px',
+                        }}
+                      >
+                        <Box>
+                          <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+                            <Typography variant="subtitle2" fontWeight={700} sx={{ color: '#F5F7FA', fontSize: '0.92rem' }}>
+                              {sr.title}
+                            </Typography>
+                            {sr.isDefault && (
+                              <Chip
+                                label="Active Default"
+                                size="small"
+                                icon={<StarIcon sx={{ fontSize: '12px !important', color: '#34d399' }} />}
+                                sx={{
+                                  height: 20,
+                                  fontSize: '0.65rem',
+                                  fontWeight: 700,
+                                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                  color: '#34d399',
+                                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                                }}
+                              />
+                            )}
+                          </Box>
+
+                          <Typography variant="caption" sx={{ color: '#626975', display: 'block', mb: 1.2 }}>
+                            Updated on {new Date(sr.updatedAt).toLocaleDateString()} • {sr.resumeText.length} chars
+                          </Typography>
+
+                          <Box
+                            sx={{
+                              maxHeight: 95,
+                              overflowY: 'auto',
+                              p: 1.2,
+                              backgroundColor: '#0B0D10',
+                              borderRadius: '6px',
+                              border: '1px solid rgba(255,255,255,0.05)',
+                              mb: 2,
+                              '&::-webkit-scrollbar': { width: '3px' },
+                              '&::-webkit-scrollbar-thumb': { backgroundColor: 'rgba(255,255,255,0.1)' },
+                            }}
+                          >
+                            <Typography variant="caption" sx={{ color: '#CBD5E1', fontSize: '0.76rem', lineHeight: 1.4, fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
+                              {sr.resumeText}
+                            </Typography>
+                          </Box>
+                        </Box>
+
+                        <Box display="flex" alignItems="center" justifyContent="space-between" pt={1.5} borderTop="1px solid rgba(255, 255, 255, 0.06)">
+                          {!sr.isDefault ? (
+                            <Button
+                              size="small"
+                              onClick={() => handleSetDefaultResume(sr.id)}
+                              sx={{ fontSize: '0.7rem', color: '#34d399', p: 0, fontWeight: 700, '&:hover': { color: '#10b981' } }}
+                            >
+                              Set Active Default
+                            </Button>
+                          ) : (
+                            <Typography variant="caption" sx={{ color: '#34d399', fontWeight: 700, fontSize: '0.7rem' }}>
+                              ✓ Current Active
+                            </Typography>
+                          )}
+
+                          <Box display="flex" alignItems="center" gap={0.5}>
+                            <IconButton size="small" onClick={() => handleOpenEditResumeModal(sr)} sx={{ color: '#818cf8', p: 0.5 }}>
+                              <EditIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                            <IconButton size="small" onClick={() => handleDeleteSavedResume(sr.id)} sx={{ color: '#f43f5e', p: 0.5 }}>
+                              <DeleteIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Box>
+                        </Box>
+                      </Paper>
+                    </Grid>
+                  ))}
+                </Grid>
+              )}
+            </Card>
+          </Grid>
         </Grid>
       )}
+
+      {/* Dialog Modal for Add/Edit Saved Resume */}
+      <Dialog
+        open={resumeModalOpen}
+        onClose={() => setResumeModalOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            backgroundColor: '#0B0D10',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '16px',
+            color: '#F5F7FA',
+          },
+        }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <Box display="flex" alignItems="center" gap={1}>
+            <BookmarkIcon sx={{ color: '#818cf8', fontSize: 20 }} />
+            <Typography variant="subtitle1" fontWeight={700}>
+              {editingResumeId ? 'Edit Saved Resume Version' : 'Save New Resume to History'}
+            </Typography>
+          </Box>
+          <IconButton size="small" onClick={() => setResumeModalOpen(false)} sx={{ color: '#626975' }}>
+            <CloseIcon sx={{ fontSize: 18 }} />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent sx={{ pt: 2.5 }}>
+          {resumeActionError && (
+            <Alert severity="error" sx={{ mb: 2, borderRadius: '8px', fontSize: '0.8rem' }}>
+              {resumeActionError}
+            </Alert>
+          )}
+
+          <Box mb={2}>
+            <Typography variant="caption" sx={{ color: '#C3C9D5', fontWeight: 600, mb: 0.6, display: 'block' }}>
+              Resume Title / Version Name *
+            </Typography>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="e.g. Full Stack Senior Resume 2026, Frontend Specialist CV"
+              value={newResumeTitle}
+              onChange={(e) => setNewResumeTitle(e.target.value)}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: '#0F1219',
+                  color: '#F5F7FA',
+                  borderRadius: '8px',
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.1)' },
+                },
+              }}
+            />
+          </Box>
+
+          <Box mb={2}>
+            <Typography variant="caption" sx={{ color: '#C3C9D5', fontWeight: 600, mb: 0.6, display: 'block' }}>
+              Resume Text Content *
+            </Typography>
+            <TextField
+              fullWidth
+              multiline
+              rows={8}
+              placeholder="Paste complete resume details, skills, summary, and experience..."
+              value={newResumeText}
+              onChange={(e) => setNewResumeText(e.target.value)}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: '#0F1219',
+                  color: '#F5F7FA',
+                  borderRadius: '8px',
+                  fontFamily: 'monospace',
+                  fontSize: '0.82rem',
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.1)' },
+                },
+              }}
+            />
+          </Box>
+
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={newResumeAsDefault}
+                onChange={(e) => setNewResumeAsDefault(e.target.checked)}
+                sx={{ color: '#6366f1', '&.Mui-checked': { color: '#6366f1' } }}
+              />
+            }
+            label={
+              <Typography variant="caption" sx={{ color: '#CBD5E1', fontSize: '0.82rem' }}>
+                Set as my active default resume for profile & AI job matching
+              </Typography>
+            }
+          />
+        </DialogContent>
+
+        <DialogActions sx={{ p: 2.5, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <Button onClick={() => setResumeModalOpen(false)} variant="outlined" size="small" sx={{ borderRadius: '8px', color: '#969DAA' }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSaveSavedResume}
+            disabled={savingResume}
+            variant="contained"
+            size="small"
+            startIcon={savingResume ? <CircularProgress size={14} color="inherit" /> : null}
+            sx={{ borderRadius: '8px', backgroundColor: '#6366f1', color: '#ffffff', '&:hover': { backgroundColor: '#4f46e5' } }}
+          >
+            {savingResume ? 'Saving...' : 'Save to History'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* VIEW 2: JOB MATCHER & AVAILABLE OPEN JOBS */}
       {tab === 'jobs' && (
@@ -764,9 +1189,31 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
           )}
 
           {jobsLoading ? (
-            <Box display="flex" justifyContent="center" py={8}>
-              <CircularProgress sx={{ color: '#06b6d4' }} />
-            </Box>
+            <Grid container spacing={3}>
+              {[1, 2, 3, 4, 5, 6].map((idx) => (
+                <Grid item xs={12} sm={6} lg={4} key={idx}>
+                  <Card sx={{ p: 3, backgroundColor: '#0B0D10', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '16px' }}>
+                    <Box display="flex" justifyContent="space-between" mb={2}>
+                      <Box flex={1} mr={2}>
+                        <Skeleton variant="text" width="80%" height={26} sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} />
+                        <Skeleton variant="text" width="60%" height={18} sx={{ bgcolor: 'rgba(255,255,255,0.04)' }} />
+                      </Box>
+                      <Skeleton variant="rounded" width={60} height={24} sx={{ bgcolor: 'rgba(255,255,255,0.06)', borderRadius: '12px' }} />
+                    </Box>
+                    <Skeleton variant="rounded" height={140} sx={{ bgcolor: 'rgba(255,255,255,0.03)', borderRadius: '8px', mb: 2 }} />
+                    <Box display="flex" gap={1} mb={2}>
+                      <Skeleton variant="rounded" width={50} height={22} sx={{ bgcolor: 'rgba(255,255,255,0.04)' }} />
+                      <Skeleton variant="rounded" width={60} height={22} sx={{ bgcolor: 'rgba(255,255,255,0.04)' }} />
+                      <Skeleton variant="rounded" width={55} height={22} sx={{ bgcolor: 'rgba(255,255,255,0.04)' }} />
+                    </Box>
+                    <Box display="flex" justifyContent="space-between" alignItems="center">
+                      <Skeleton variant="text" width={100} height={20} sx={{ bgcolor: 'rgba(255,255,255,0.04)' }} />
+                      <Skeleton variant="rounded" width={90} height={32} sx={{ bgcolor: 'rgba(255,255,255,0.06)', borderRadius: '6px' }} />
+                    </Box>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
           ) : jobs.length === 0 ? (
             <Paper sx={{ p: 6, textAlign: 'center', backgroundColor: '#0B0D10', borderRadius: '16px' }}>
               <Typography variant="subtitle1" sx={{ color: '#969DAA' }}>
@@ -875,7 +1322,7 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
                       )}
                     </Box>
 
-                    <Box pt={2} borderTop="1px solid rgba(255, 255, 255, 0.06)" display="flex" justifyContent="space-between" alignItems="center">
+                    <Box pt={2} borderTop="1px solid rgba(255, 255, 255, 0.06)" display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
                       <Typography variant="caption" sx={{ color: '#626975' }}>
                         Experience Required: {job.experienceRequired}
                       </Typography>
@@ -889,12 +1336,14 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
                           borderRadius: '6px',
                           fontWeight: 700,
                           fontSize: '0.8rem',
+                          whiteSpace: 'nowrap',
+                          minWidth: 'fit-content',
                           backgroundColor: '#6366f1',
                           boxShadow: 'none !important',
                           '&:hover': { backgroundColor: '#4f46e5', boxShadow: 'none !important' },
                         }}
                       >
-                        {applyingJobId === job.id ? 'Submitting...' : 'Apply Now'}
+                        {applyingJobId === job.id ? 'Applying...' : 'Apply Now'}
                       </Button>
                     </Box>
                   </Card>
@@ -922,9 +1371,22 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
           )}
 
           {appsLoading ? (
-            <Box display="flex" justifyContent="center" py={8}>
-              <CircularProgress sx={{ color: '#818cf8' }} />
-            </Box>
+            <Grid container spacing={3}>
+              {[1, 2, 3, 4].map((i) => (
+                <Grid item xs={12} lg={6} key={i}>
+                  <Card sx={{ p: 3.5, backgroundColor: '#0B0D10', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '16px' }}>
+                    <Box display="flex" justifyContent="space-between" mb={3}>
+                      <Box flex={1}>
+                        <Skeleton variant="text" width="60%" height={28} sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} />
+                        <Skeleton variant="text" width="40%" height={18} sx={{ bgcolor: 'rgba(255,255,255,0.04)' }} />
+                      </Box>
+                      <Skeleton variant="rounded" width={70} height={24} sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} />
+                    </Box>
+                    <Skeleton variant="rounded" height={160} sx={{ bgcolor: 'rgba(255,255,255,0.03)', borderRadius: '10px' }} />
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
           ) : applications.length === 0 ? (
             <Paper sx={{ p: 6, textAlign: 'center', backgroundColor: '#0B0D10', borderRadius: '16px' }}>
                   <Typography variant="subtitle1" sx={{ color: '#969DAA', mb: 1 }}>
@@ -1054,7 +1516,7 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
                                                   borderRadius: '10px',
                                                 }}
                                               >
-                                                <Box display="flex" alignItems="center" justifyContent="space-between" mb={1.2}>
+                                                <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1} mb={1.2}>
                                                   <Chip
                                                     label={`${inv.type} ROUND`}
                                                     size="small"
@@ -1076,6 +1538,7 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
                                                          height: 24,
                                                          fontSize: '0.72rem',
                                                          fontWeight: 700,
+                                                         whiteSpace: 'nowrap',
                                                          background: 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
                                                          color: '#ffffff',
                                                          borderRadius: '6px',
@@ -1099,7 +1562,8 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
                                                          fontWeight: 600,
                                                          bgcolor: 'rgba(255, 255, 255, 0.05)',
                                                          color: '#969DAA',
-                                                         border: '1px solid rgba(255, 255, 255, 0.1)'
+                                                         border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                         maxWidth: '100%'
                                                        }}
                                                      />
                                                    ) : (

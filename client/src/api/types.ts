@@ -16,6 +16,16 @@ export interface CandidateProfile {
   aiSummary?: string | null;
 }
 
+export interface SavedResume {
+  id: string;
+  userId: string;
+  title: string;
+  resumeText: string;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CandidateProfileSummary {
   executiveSummary: string;
   coreCompetencies: string[];

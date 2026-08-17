@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Button, TextField, MenuItem, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, Paper, Chip, InputAdornment,
-  Grid, CircularProgress, Alert
+  Grid, Alert, Skeleton
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -153,128 +153,125 @@ const CandidateList = () => {
         </Alert>
       )}
 
-      {/* Top Summary Stat Cards (Matching Design Reference) */}
-      <Grid container spacing={2} mb={3.5}>
+      {/* Top Summary Stat Cards (CSS Grid Layout) */}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)', lg: 'repeat(5, 1fr)' },
+          gap: 2,
+          mb: 3.5
+        }}
+      >
         {/* Card 1: TOTAL APPLICANTS */}
-        <Grid item xs={12} sm={6} md={2.4}>
-          <Paper
-            sx={{
-              p: 2.2,
-              backgroundColor: '#0B0D10',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: '8px',
-              position: 'relative'
-            }}
-          >
-            <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
-              <Typography variant="caption" fontWeight={700} sx={{ color: '#626975', letterSpacing: '0.06em', textTransform: 'uppercase', fontSize: '0.65rem' }}>
-                TOTAL APPLICANTS
-              </Typography>
-              <ApplicantsIcon sx={{ fontSize: 16, color: '#626975' }} />
-            </Box>
-            <Typography variant="h4" fontWeight={700} sx={{ color: '#F5F7FA', mb: 1.5 }} className="font-mono">
-              {totalApplicants}
+        <Paper
+          sx={{
+            p: 2.2,
+            backgroundColor: '#0B0D10',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '8px',
+            position: 'relative'
+          }}
+        >
+          <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
+            <Typography variant="caption" fontWeight={700} sx={{ color: '#626975', letterSpacing: '0.06em', textTransform: 'uppercase', fontSize: '0.65rem' }}>
+              TOTAL APPLICANTS
             </Typography>
-            <Chip label="Pipeline" size="small" sx={{ height: 18, fontSize: '0.62rem', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#969DAA' }} />
-          </Paper>
-        </Grid>
+            <ApplicantsIcon sx={{ fontSize: 16, color: '#626975' }} />
+          </Box>
+          <Typography variant="h4" fontWeight={700} sx={{ color: '#F5F7FA', mb: 1.5 }} className="font-mono">
+            {totalApplicants}
+          </Typography>
+          <Chip label="Pipeline" size="small" sx={{ height: 18, fontSize: '0.62rem', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#969DAA' }} />
+        </Paper>
 
         {/* Card 2: IN SCREENING */}
-        <Grid item xs={12} sm={6} md={2.4}>
-          <Paper
-            sx={{
-              p: 2.2,
-              backgroundColor: '#0B0D10',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: '8px',
-              position: 'relative'
-            }}
-          >
-            <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
-              <Typography variant="caption" fontWeight={700} sx={{ color: '#626975', letterSpacing: '0.06em', textTransform: 'uppercase', fontSize: '0.65rem' }}>
-                IN SCREENING
-              </Typography>
-              <ScreeningIcon sx={{ fontSize: 16, color: '#626975' }} />
-            </Box>
-            <Typography variant="h4" fontWeight={700} sx={{ color: '#F5F7FA', mb: 1.5 }} className="font-mono">
-              {screeningCount}
+        <Paper
+          sx={{
+            p: 2.2,
+            backgroundColor: '#0B0D10',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '8px',
+            position: 'relative'
+          }}
+        >
+          <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
+            <Typography variant="caption" fontWeight={700} sx={{ color: '#626975', letterSpacing: '0.06em', textTransform: 'uppercase', fontSize: '0.65rem' }}>
+              IN SCREENING
             </Typography>
-            <Chip label="Applied / Screening" size="small" sx={{ height: 18, fontSize: '0.62rem', backgroundColor: 'rgba(6, 182, 212, 0.1)', color: '#06b6d4' }} />
-          </Paper>
-        </Grid>
+            <ScreeningIcon sx={{ fontSize: 16, color: '#626975' }} />
+          </Box>
+          <Typography variant="h4" fontWeight={700} sx={{ color: '#F5F7FA', mb: 1.5 }} className="font-mono">
+            {screeningCount}
+          </Typography>
+          <Chip label="Applied / Screening" size="small" sx={{ height: 18, fontSize: '0.62rem', backgroundColor: 'rgba(6, 182, 212, 0.1)', color: '#06b6d4' }} />
+        </Paper>
 
         {/* Card 3: IN INTERVIEWS */}
-        <Grid item xs={12} sm={6} md={2.4}>
-          <Paper
-            sx={{
-              p: 2.2,
-              backgroundColor: '#0B0D10',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: '8px',
-              position: 'relative'
-            }}
-          >
-            <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
-              <Typography variant="caption" fontWeight={700} sx={{ color: '#626975', letterSpacing: '0.06em', textTransform: 'uppercase', fontSize: '0.65rem' }}>
-                IN INTERVIEWS
-              </Typography>
-              <InterviewIcon sx={{ fontSize: 16, color: '#626975' }} />
-            </Box>
-            <Typography variant="h4" fontWeight={700} sx={{ color: '#F5F7FA', mb: 1.5 }} className="font-mono">
-              {interviewCount}
+        <Paper
+          sx={{
+            p: 2.2,
+            backgroundColor: '#0B0D10',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '8px',
+            position: 'relative'
+          }}
+        >
+          <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
+            <Typography variant="caption" fontWeight={700} sx={{ color: '#626975', letterSpacing: '0.06em', textTransform: 'uppercase', fontSize: '0.65rem' }}>
+              IN INTERVIEWS
             </Typography>
-            <Chip label="Active Rounds" size="small" sx={{ height: 18, fontSize: '0.62rem', backgroundColor: 'rgba(99, 102, 241, 0.1)', color: '#818cf8' }} />
-          </Paper>
-        </Grid>
+            <InterviewIcon sx={{ fontSize: 16, color: '#626975' }} />
+          </Box>
+          <Typography variant="h4" fontWeight={700} sx={{ color: '#F5F7FA', mb: 1.5 }} className="font-mono">
+            {interviewCount}
+          </Typography>
+          <Chip label="Active Rounds" size="small" sx={{ height: 18, fontSize: '0.62rem', backgroundColor: 'rgba(99, 102, 241, 0.1)', color: '#818cf8' }} />
+        </Paper>
 
         {/* Card 4: SHORTLISTED */}
-        <Grid item xs={12} sm={6} md={2.4}>
-          <Paper
-            sx={{
-              p: 2.2,
-              backgroundColor: '#0B0D10',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: '8px',
-              position: 'relative'
-            }}
-          >
-            <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
-              <Typography variant="caption" fontWeight={700} sx={{ color: '#626975', letterSpacing: '0.06em', textTransform: 'uppercase', fontSize: '0.65rem' }}>
-                SHORTLISTED
-              </Typography>
-              <ShortlistIcon sx={{ fontSize: 16, color: '#626975' }} />
-            </Box>
-            <Typography variant="h4" fontWeight={700} sx={{ color: '#F5F7FA', mb: 1.5 }} className="font-mono">
-              {shortlistedCount}
+        <Paper
+          sx={{
+            p: 2.2,
+            backgroundColor: '#0B0D10',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '8px',
+            position: 'relative'
+          }}
+        >
+          <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
+            <Typography variant="caption" fontWeight={700} sx={{ color: '#626975', letterSpacing: '0.06em', textTransform: 'uppercase', fontSize: '0.65rem' }}>
+              SHORTLISTED
             </Typography>
-            <Chip label="Target Fit" size="small" sx={{ height: 18, fontSize: '0.62rem', backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }} />
-          </Paper>
-        </Grid>
+            <ShortlistIcon sx={{ fontSize: 16, color: '#626975' }} />
+          </Box>
+          <Typography variant="h4" fontWeight={700} sx={{ color: '#F5F7FA', mb: 1.5 }} className="font-mono">
+            {shortlistedCount}
+          </Typography>
+          <Chip label="Target Fit" size="small" sx={{ height: 18, fontSize: '0.62rem', backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }} />
+        </Paper>
 
         {/* Card 5: TOTAL HIRED */}
-        <Grid item xs={12} sm={6} md={2.4}>
-          <Paper
-            sx={{
-              p: 2.2,
-              backgroundColor: '#0B0D10',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: '8px',
-              position: 'relative'
-            }}
-          >
-            <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
-              <Typography variant="caption" fontWeight={700} sx={{ color: '#626975', letterSpacing: '0.06em', textTransform: 'uppercase', fontSize: '0.65rem' }}>
-                TOTAL HIRED
-              </Typography>
-              <HiredIcon sx={{ fontSize: 16, color: '#626975' }} />
-            </Box>
-            <Typography variant="h4" fontWeight={700} sx={{ color: '#F5F7FA', mb: 1.5 }} className="font-mono">
-              {hiredCount}
+        <Paper
+          sx={{
+            p: 2.2,
+            backgroundColor: '#0B0D10',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '8px',
+            position: 'relative'
+          }}
+        >
+          <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
+            <Typography variant="caption" fontWeight={700} sx={{ color: '#626975', letterSpacing: '0.06em', textTransform: 'uppercase', fontSize: '0.65rem' }}>
+              TOTAL HIRED
             </Typography>
-            <Chip label="Success" size="small" sx={{ height: 18, fontSize: '0.62rem', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }} />
-          </Paper>
-        </Grid>
-      </Grid>
+            <HiredIcon sx={{ fontSize: 16, color: '#626975' }} />
+          </Box>
+          <Typography variant="h4" fontWeight={700} sx={{ color: '#F5F7FA', mb: 1.5 }} className="font-mono">
+            {hiredCount}
+          </Typography>
+          <Chip label="Success" size="small" sx={{ height: 18, fontSize: '0.62rem', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }} />
+        </Paper>
+      </Box>
 
       {/* Multi-Criteria Filters Bar */}
       <Paper sx={{ p: 2, backgroundColor: '#0B0D10', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '8px', mb: 3 }}>
@@ -356,11 +353,30 @@ const CandidateList = () => {
       </Paper>
 
       {/* Participants Table */}
-      <TableContainer component={Paper} sx={{ backgroundColor: '#101318', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '8px' }}>
+      <TableContainer component={Paper} sx={{ backgroundColor: '#101318', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '8px', overflowX: 'auto' }}>
         {loading ? (
-          <Box display="flex" justifyContent="center" p={4}>
-            <CircularProgress size={28} sx={{ color: '#818cf8' }} />
-          </Box>
+          <Table size="medium" sx={{ minWidth: 800 }}>
+            <TableHead>
+              <TableRow>
+                <TableCell width="25%"><Skeleton variant="text" width="60%" sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} /></TableCell>
+                <TableCell width="20%"><Skeleton variant="text" width="50%" sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} /></TableCell>
+                <TableCell width="15%"><Skeleton variant="text" width="40%" sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} /></TableCell>
+                <TableCell width="20%"><Skeleton variant="text" width="50%" sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} /></TableCell>
+                <TableCell width="20%"><Skeleton variant="text" width="40%" sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} /></TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {[1, 2, 3, 4, 5].map((i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton variant="text" height={24} sx={{ bgcolor: 'rgba(255,255,255,0.04)' }} /></TableCell>
+                  <TableCell><Skeleton variant="text" height={24} sx={{ bgcolor: 'rgba(255,255,255,0.04)' }} /></TableCell>
+                  <TableCell><Skeleton variant="rounded" height={22} width={70} sx={{ bgcolor: 'rgba(255,255,255,0.04)' }} /></TableCell>
+                  <TableCell><Skeleton variant="text" height={24} sx={{ bgcolor: 'rgba(255,255,255,0.04)' }} /></TableCell>
+                  <TableCell><Skeleton variant="rounded" height={24} width={80} sx={{ bgcolor: 'rgba(255,255,255,0.04)' }} /></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         ) : filteredCandidates.length === 0 ? (
           <Box textAlign="center" py={6}>
             <FilterIcon sx={{ fontSize: 36, color: '#626975', mb: 1 }} />
@@ -376,7 +392,7 @@ const CandidateList = () => {
             </Button>
           </Box>
         ) : (
-          <Table size="medium">
+          <Table size="medium" sx={{ minWidth: 800 }}>
             <TableHead>
               <TableRow sx={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
                 <TableCell sx={{ color: '#626975', fontWeight: 600, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Participant</TableCell>

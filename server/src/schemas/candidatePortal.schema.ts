@@ -19,6 +19,20 @@ export const applyJobSchema = z.object({
   updateProfileResume: z.boolean().optional(),
 });
 
+export const createSavedResumeSchema = z.object({
+  title: z.string().min(2, 'Resume title is required'),
+  resumeText: z.string().min(10, 'Resume text must be at least 10 characters'),
+  setAsDefault: z.boolean().optional(),
+});
+
+export const updateSavedResumeSchema = z.object({
+  title: z.string().min(2, 'Resume title is required').optional(),
+  resumeText: z.string().min(10, 'Resume text must be at least 10 characters').optional(),
+  setAsDefault: z.boolean().optional(),
+});
+
 export type UpsertProfileInput = z.infer<typeof upsertProfileSchema>;
 export type ApplyJobInput = z.infer<typeof applyJobSchema>;
+export type CreateSavedResumeInput = z.infer<typeof createSavedResumeSchema>;
+export type UpdateSavedResumeInput = z.infer<typeof updateSavedResumeSchema>;
 

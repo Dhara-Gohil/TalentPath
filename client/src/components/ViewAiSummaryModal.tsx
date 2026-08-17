@@ -37,7 +37,9 @@ const ViewAiSummaryModal = ({ open, onClose, candidate, onEvaluationGenerated }:
     }
   }, [candidate, open]);
 
-  const isInInterviewProcess = Boolean(candidate?.interviews && candidate.interviews.length > 0);
+  const completedScorecardsCount = candidate?.interviews
+    ? candidate.interviews.reduce((acc: number, curr: any) => acc + (curr.feedbacks?.length || 0), 0)
+    : (candidate?.feedbacks?.length || 0);
 
   const handleGenerateAI = async () => {
     if (!candidate) return;
@@ -63,6 +65,7 @@ const ViewAiSummaryModal = ({ open, onClose, candidate, onEvaluationGenerated }:
 
   if (!candidate) return null;
 
+  const isPendingFeedback = evaluation?.recommendation === 'PENDING_INTERVIEW_FEEDBACK' || (completedScorecardsCount === 0 && !evaluation?.roundAnalysis);
   const isRecommended = evaluation?.recommendation?.toUpperCase().includes('YES');
 
   return (
@@ -92,7 +95,11 @@ const ViewAiSummaryModal = ({ open, onClose, candidate, onEvaluationGenerated }:
               Interview Process AI Summary
             </Typography>
             <Typography variant="caption" sx={{ color: '#626975', fontSize: '0.72rem' }}>
-              Synthesized from scorecards across the 4 interview steps
+              {completedScorecardsCount === 0
+                ? 'Initial Candidate Qualification Assessment (Pre-Interview)'
+                : completedScorecardsCount < 4
+                ? `Synthesized from ${completedScorecardsCount} completed interview scorecard(s)`
+                : 'Synthesized from scorecards across all 4 interview steps'}
             </Typography>
           </Box>
         </Box>
@@ -118,8 +125,8 @@ const ViewAiSummaryModal = ({ open, onClose, candidate, onEvaluationGenerated }:
             variant="outlined"
             startIcon={loading ? <CircularProgress size={12} sx={{ color: '#818cf8' }} /> : <RefreshIcon sx={{ fontSize: 14 }} />}
             onClick={handleGenerateAI}
-            disabled={loading || !isInInterviewProcess}
-            sx={{ borderRadius: '6px', fontSize: '0.72rem', color: isInInterviewProcess ? '#818cf8' : '#626975', borderColor: isInInterviewProcess ? 'rgba(129, 140, 248, 0.3)' : 'rgba(255,255,255,0.08)' }}
+            disabled={loading}
+            sx={{ borderRadius: '6px', fontSize: '0.72rem', color: '#818cf8', borderColor: 'rgba(129, 140, 248, 0.3)' }}
           >
             {loading ? 'Synthesizing...' : (evaluation ? 'Regenerate Summary' : 'Generate AI Summary')}
           </Button>
@@ -171,23 +178,35 @@ const ViewAiSummaryModal = ({ open, onClose, candidate, onEvaluationGenerated }:
               mb={3}
               sx={{
                 borderRadius: '8px',
-                backgroundColor: isRecommended ? 'rgba(16, 185, 129, 0.1)' : 'rgba(244, 63, 94, 0.1)',
-                border: isRecommended ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(244, 63, 94, 0.25)',
+                backgroundColor: isPendingFeedback
+                  ? 'rgba(99, 102, 241, 0.1)'
+                  : isRecommended
+                  ? 'rgba(16, 185, 129, 0.1)'
+                  : 'rgba(244, 63, 94, 0.1)',
+                border: isPendingFeedback
+                  ? '1px solid rgba(99, 102, 241, 0.25)'
+                  : isRecommended
+                  ? '1px solid rgba(16, 185, 129, 0.25)'
+                  : '1px solid rgba(244, 63, 94, 0.25)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between'
               }}
             >
               <Typography variant="caption" sx={{ color: '#969DAA', fontWeight: 600 }}>
-                4-Round Synthesized Recommendation
+                {completedScorecardsCount === 0
+                  ? 'Pre-Interview Screening Recommendation'
+                  : completedScorecardsCount < 4
+                  ? `In-Progress Evaluation (${completedScorecardsCount}/4 Rounds Completed)`
+                  : '4-Round Synthesized Recommendation'}
               </Typography>
               <Chip
-                label={`${evaluation.recommendation}`}
+                label={isPendingFeedback ? 'PENDING INTERVIEW SCORECARDS' : evaluation.recommendation}
                 sx={{
                   height: 24,
                   fontSize: '0.75rem',
                   fontWeight: 700,
-                  backgroundColor: isRecommended ? '#10b981' : '#f43f5e',
+                  backgroundColor: isPendingFeedback ? '#6366f1' : isRecommended ? '#10b981' : '#f43f5e',
                   color: '#ffffff',
                 }}
                 className="font-mono"
@@ -196,7 +215,7 @@ const ViewAiSummaryModal = ({ open, onClose, candidate, onEvaluationGenerated }:
 
             {/* Executive Summary */}
             <Typography variant="caption" sx={{ color: '#626975', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', mb: 0.8, display: 'block' }}>
-              Executive Interview Process Summary
+              {completedScorecardsCount === 0 ? 'Pre-Interview Candidate Assessment' : 'Executive Interview Process Summary'}
             </Typography>
             <Paper sx={{ p: 2, backgroundColor: '#151920', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '6px', mb: 3 }}>
               <Typography variant="body2" sx={{ color: '#969DAA', lineHeight: 1.6, fontSize: '0.84rem' }}>

@@ -13,16 +13,22 @@ import {
   Chip,
   FormControlLabel,
   Checkbox,
-  CircularProgress
+  CircularProgress,
+  Select,
+  MenuItem,
+  FormControl,
+  Skeleton,
 } from '@mui/material';
 import {
   Close as CloseIcon,
   Send as SendIcon,
   Description as ResumeIcon,
   CheckCircleOutline as CheckIcon,
-  AutoAwesome as SparklesIcon
+  AutoAwesome as SparklesIcon,
+  Bookmark as BookmarkIcon
 } from '@mui/icons-material';
-import type { SuitableJobItem, CandidateProfile } from '../api/types';
+import type { SuitableJobItem, CandidateProfile, SavedResume } from '../api/types';
+import { candidateService } from '../api/candidate.service';
 import { renderFormattedText } from '../utils/textFormatter';
 
 interface Props {
@@ -30,7 +36,7 @@ interface Props {
   onClose: () => void;
   job: SuitableJobItem | null;
   profile: CandidateProfile | null;
-  onConfirmApply: (payload: {
+  onConfirmApply: (data: {
     jobId: string;
     resumeText: string;
     updateProfileResume: boolean;
@@ -46,20 +52,50 @@ const ApplyJobModal: React.FC<Props> = ({
 }) => {
   const [resumeText, setResumeText] = useState('');
   const [updateProfile, setUpdateProfile] = useState(false);
+  const [savedResumes, setSavedResumes] = useState<SavedResume[]>([]);
+  const [selectedResumeId, setSelectedResumeId] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (profile && profile.resumeText) {
-      setResumeText(profile.resumeText);
-    } else {
-      setResumeText('');
+    if (open) {
+      if (profile && profile.resumeText) {
+        setResumeText(profile.resumeText);
+      } else {
+        setResumeText('');
+      }
+      setUpdateProfile(false);
+      setError('');
+      setSelectedResumeId('');
+
+      // Fetch Saved Resumes History
+      candidateService.getSavedResumes()
+        .then((data) => setSavedResumes(data))
+        .catch(() => setSavedResumes([]));
     }
-    setUpdateProfile(false);
-    setError('');
   }, [open, profile]);
 
-  if (!job) return null;
+  const handleSelectSavedResume = (resumeId: string) => {
+    setSelectedResumeId(resumeId);
+    if (!resumeId) {
+      if (profile?.resumeText) setResumeText(profile.resumeText);
+      return;
+    }
+    const found = savedResumes.find((r) => r.id === resumeId);
+    if (found) {
+      setResumeText(found.resumeText);
+    }
+  };
+
+  if (!job) {
+    return (
+      <Drawer anchor="right" open={open} onClose={onClose} PaperProps={{ sx: { width: { xs: '100%', sm: 540 }, backgroundColor: '#0A0C10', p: 3 } }}>
+        <Skeleton variant="text" width={220} height={32} sx={{ bgcolor: 'rgba(255,255,255,0.06)', mb: 3 }} />
+        <Skeleton variant="rounded" height={140} sx={{ bgcolor: 'rgba(255,255,255,0.04)', borderRadius: '12px', mb: 3 }} />
+        <Skeleton variant="rounded" height={220} sx={{ bgcolor: 'rgba(255,255,255,0.04)', borderRadius: '12px' }} />
+      </Drawer>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -278,6 +314,42 @@ const ApplyJobModal: React.FC<Props> = ({
             <Typography variant="caption" sx={{ color: '#969DAA', display: 'block', mb: 1.2, fontSize: '0.78rem', lineHeight: 1.4 }}>
               This resume will be submitted for <strong>{job.title}</strong> and sent to recruiters. You can tailor or refine the text below before confirming.
             </Typography>
+
+            {savedResumes.length > 0 && (
+              <Box mb={2}>
+                <Typography variant="caption" sx={{ color: '#818cf8', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 0.6, mb: 0.6 }}>
+                  <BookmarkIcon sx={{ fontSize: 14 }} /> Choose from your Saved Resume History:
+                </Typography>
+                <FormControl fullWidth size="small">
+                  <Select
+                    value={selectedResumeId}
+                    onChange={(e) => handleSelectSavedResume(e.target.value as string)}
+                    displayEmpty
+                    sx={{
+                      backgroundColor: '#0F1219',
+                      color: '#F5F7FA',
+                      fontSize: '0.84rem',
+                      borderRadius: '8px',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'rgba(99, 102, 241, 0.3)',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#818cf8',
+                      },
+                    }}
+                  >
+                    <MenuItem value="">
+                      <em>Active Profile Default Resume</em>
+                    </MenuItem>
+                    {savedResumes.map((sr) => (
+                      <MenuItem key={sr.id} value={sr.id}>
+                        {sr.title} {sr.isDefault ? ' (⭐ Active Default)' : ''}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+            )}
 
             <TextField
               fullWidth

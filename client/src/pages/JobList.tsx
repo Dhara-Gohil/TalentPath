@@ -60,7 +60,14 @@ const JobList = () => {
             color="primary"
             onClick={() => setCreateModalOpen(true)}
             size="medium"
-            sx={{ borderRadius: '6px', backgroundColor: '#6366f1', '&:hover': { backgroundColor: '#4f46e5' } }}
+            sx={{
+              borderRadius: '6px',
+              backgroundColor: '#6366f1',
+              '&:hover': { backgroundColor: '#4f46e5' },
+              whiteSpace: 'nowrap',
+              minWidth: 'fit-content',
+              px: 2
+            }}
           >
             Create Job
           </Button>
@@ -73,10 +80,11 @@ const JobList = () => {
           backgroundColor: '#101318',
           border: '1px solid rgba(255, 255, 255, 0.08)',
           borderRadius: '10px',
-          boxShadow: 'none !important'
+          boxShadow: 'none !important',
+          overflowX: 'auto'
         }}
       >
-        <Table>
+        <Table sx={{ minWidth: 650 }}>
           <TableHead sx={{ backgroundColor: '#0B0D10' }}>
             <TableRow>
               <TableCell sx={{ color: '#626975', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Job Title</TableCell>

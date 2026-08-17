@@ -84,3 +84,78 @@ export const getMyApplications = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: 'Failed to fetch applications' });
   }
 };
+
+export const getSavedResumes = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+    const resumes = await candidatePortalService.getSavedResumes(userId);
+    res.json(resumes);
+  } catch (error: any) {
+    if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
+    res.status(500).json({ error: 'Failed to fetch saved resumes' });
+  }
+};
+
+export const createSavedResume = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+    const { title, resumeText, setAsDefault } = req.body;
+    if (!title || !resumeText) {
+      return res.status(400).json({ error: 'Title and resume text are required' });
+    }
+
+    const created = await candidatePortalService.createSavedResume(userId, { title, resumeText, setAsDefault });
+    res.status(201).json(created);
+  } catch (error: any) {
+    if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
+    res.status(400).json({ error: error.message || 'Failed to create saved resume' });
+  }
+};
+
+export const updateSavedResume = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+    const { id } = req.params;
+    const { title, resumeText, setAsDefault } = req.body;
+
+    const updated = await candidatePortalService.updateSavedResume(userId, id, { title, resumeText, setAsDefault });
+    res.json(updated);
+  } catch (error: any) {
+    if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
+    res.status(400).json({ error: error.message || 'Failed to update saved resume' });
+  }
+};
+
+export const deleteSavedResume = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+    const { id } = req.params;
+    const result = await candidatePortalService.deleteSavedResume(userId, id);
+    res.json(result);
+  } catch (error: any) {
+    if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
+    res.status(400).json({ error: error.message || 'Failed to delete saved resume' });
+  }
+};
+
+export const setDefaultResume = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+    const { id } = req.params;
+    const result = await candidatePortalService.setDefaultResume(userId, id);
+    res.json(result);
+  } catch (error: any) {
+    if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
+    res.status(400).json({ error: error.message || 'Failed to set default resume' });
+  }
+};

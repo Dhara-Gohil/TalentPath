@@ -142,16 +142,17 @@ const CandidateDetails = () => {
   return (
     <Box
       sx={{
-        height: 'calc(100vh - 100px)',
+        minHeight: 'calc(100vh - 100px)',
+        height: { xs: 'auto', md: 'calc(100vh - 100px)' },
         display: 'flex',
         flexDirection: 'column',
-        overflow: 'hidden',
+        overflowY: { xs: 'auto', md: 'hidden' },
         gap: 2
       }}
     >
       {/* Top Header Bar */}
       <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1.5}>
-        <Box display="flex" alignItems="center" gap={2}>
+        <Box display="flex" alignItems="center" gap={1.5} flexWrap="wrap">
           <Button
             startIcon={<ArrowBackIcon sx={{ fontSize: 16 }} />}
             onClick={() => navigate('/candidates')}
@@ -162,7 +163,7 @@ const CandidateDetails = () => {
           </Button>
 
           <Box>
-            <Box display="flex" alignItems="center" gap={1.5}>
+            <Box display="flex" alignItems="center" gap={1.5} flexWrap="wrap">
               <Typography variant="h5" fontWeight={700} sx={{ color: '#F5F7FA', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
                 {candidate.name}
               </Typography>
@@ -172,15 +173,14 @@ const CandidateDetails = () => {
                 sx={{ height: 20, fontSize: '0.7rem', backgroundColor: 'rgba(255, 255, 255, 0.05)', color: '#818cf8', border: '1px solid rgba(255,255,255,0.08)' }}
               />
             </Box>
-            <Typography variant="caption" sx={{ color: '#626975', fontSize: '0.75rem' }}>
+            <Typography variant="caption" sx={{ color: '#626975', fontSize: '0.75rem', display: 'block' }}>
               {candidate.email} • {candidate.phone} • {candidate.experienceYears} Yrs Experience
             </Typography>
           </Box>
         </Box>
 
         {/* Action Controls & Pipeline Stage Select */}
-        <Box display="flex" alignItems="center" gap={2}>
-
+        <Box display="flex" alignItems="center" flexWrap="wrap" gap={1.5}>
           <Tooltip title={!isInInterviewProcess ? 'Candidate is not yet in the interview process. Schedule an interview session first.' : ''}>
             <span>
               <Button
@@ -193,9 +193,11 @@ const CandidateDetails = () => {
                   background: isInInterviewProcess ? 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)' : 'rgba(255,255,255,0.05)',
                   color: isInInterviewProcess ? '#ffffff' : '#626975',
                   fontWeight: 700,
-                  fontSize: '0.82rem',
+                  fontSize: { xs: '0.75rem', sm: '0.82rem' },
+                  whiteSpace: 'nowrap',
+                  minWidth: 'fit-content',
                   borderRadius: '8px',
-                  px: 2,
+                  px: { xs: 1.5, sm: 2 },
                   height: 36,
                   boxShadow: 'none',
                   '&:hover': {
@@ -203,13 +205,13 @@ const CandidateDetails = () => {
                   }
                 }}
               >
-              Generate AI Interview Summary
+                Generate AI Interview Summary
               </Button>
             </span>
           </Tooltip>
 
           <Box display="flex" alignItems="center" gap={1}>
-            <Typography variant="caption" sx={{ color: '#626975', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            <Typography variant="caption" sx={{ color: '#626975', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
               Pipeline Stage:
             </Typography>
             {isInterviewer ? (
@@ -270,17 +272,18 @@ const CandidateDetails = () => {
       </Box>
 
       {/* Bottom Viewport-Fit Split Grid */}
-      <Box sx={{ flex: 1, minHeight: 0, display: 'flex', gap: 2 }}>
+      <Box sx={{ flex: { xs: 'none', md: 1 }, minHeight: 0, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2 }}>
         {/* Left Card: Candidate Resume & Skills (Internal Scroll) */}
         <Card
           sx={{
             flex: 1,
+            minHeight: { xs: '260px', md: 0 },
             display: 'flex',
             flexDirection: 'column',
             backgroundColor: '#101318',
             border: '1px solid rgba(255, 255, 255, 0.08)',
             borderRadius: '10px',
-            p: 2.5,
+            p: { xs: 2, sm: 2.5 },
             overflowY: 'auto'
           }}
         >
@@ -316,14 +319,15 @@ const CandidateDetails = () => {
           className="ai-gradient-card"
           sx={{
             flex: 1,
+            minHeight: { xs: '300px', md: 0 },
             display: 'flex',
             flexDirection: 'column',
             borderRadius: '10px',
-            p: 2.5,
+            p: { xs: 2, sm: 2.5 },
             overflowY: 'auto'
           }}
         >
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1} mb={2}>
             <Box display="flex" alignItems="center" gap={1}>
               <AiIcon sx={{ fontSize: 18, color: '#818cf8' }} />
               <Typography variant="subtitle2" fontWeight={700} sx={{ color: '#F5F7FA', letterSpacing: '-0.01em' }}>
@@ -342,6 +346,8 @@ const CandidateDetails = () => {
                 color: '#ffffff',
                 borderRadius: '6px',
                 fontSize: '0.75rem',
+                whiteSpace: 'nowrap',
+                minWidth: 'fit-content',
                 py: 0.4,
                 '&:hover': { backgroundColor: '#4f46e5' }
               }}

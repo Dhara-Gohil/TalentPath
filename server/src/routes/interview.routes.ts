@@ -5,6 +5,7 @@ import {
   updateStatus,
   getInterviews,
   getInterviewById,
+  getInterviewSync,
   submitFeedback,
   deleteInterview,
   saveTranscript,
@@ -19,6 +20,7 @@ const router = Router();
 router.use(authenticate as any);
 
 router.get('/', getInterviews as any);
+router.get('/:id/sync', getInterviewSync as any);
 router.get('/:id', getInterviewById as any);
 router.post('/', scheduleInterview as any);
 router.put('/:id', updateInterview as any);

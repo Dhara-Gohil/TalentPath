@@ -145,7 +145,6 @@ const InterviewWorkspace = () => {
   const [error, setError] = useState('');
 
   // Live Timer (Activated only when candidate has joined session)
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isTimerActive, setIsTimerActive] = useState(false);
 
   // Transcript state
@@ -190,13 +189,10 @@ const InterviewWorkspace = () => {
     transcriptLines.some(l => l.speaker === 'Candidate')
   );
 
-  const getSessionStartTimeMs = (rawTranscript?: string | null): number | null => {
-    if (rawTranscript) {
-      const match = rawTranscript.match(/\[SYSTEM\]: Candidate joined live session @ (\d+)/);
-      if (match && match[1]) {
-        const parsed = parseInt(match[1], 10);
-        if (!isNaN(parsed) && parsed > 0) return parsed;
-      }
+  const getSessionStartTimeMs = (scheduledAt?: string | Date | null): number | null => {
+    if (scheduledAt) {
+      const ms = new Date(scheduledAt).getTime();
+      if (!isNaN(ms) && ms > 0) return ms;
     }
     if (id) {
       const local = localStorage.getItem(`session_start_ms_${id}`);
@@ -208,17 +204,12 @@ const InterviewWorkspace = () => {
     return null;
   };
 
-  // Sync candidate joined presence marker with timestamp
+  // Track candidate session start time in localStorage without polluting database transcript
   useEffect(() => {
     if (isCandidateUser && id && interview) {
-      const currentText = interview.transcript || '';
-      if (!currentText.includes('[SYSTEM]: Candidate joined live session')) {
-        const nowMs = Date.now();
-        localStorage.setItem(`session_start_ms_${id}`, nowMs.toString());
-        const updatedText = currentText
-          ? `${currentText}\n[SYSTEM]: Candidate joined live session @ ${nowMs}`
-          : `[SYSTEM]: Candidate joined live session @ ${nowMs}`;
-        interviewService.saveTranscript(id, updatedText).catch(() => { });
+      const localKey = `session_start_ms_${id}`;
+      if (!localStorage.getItem(localKey)) {
+        localStorage.setItem(localKey, Date.now().toString());
       }
     }
   }, [isCandidateUser, id, interview?.id]);
@@ -232,58 +223,66 @@ const InterviewWorkspace = () => {
     }
   }, [isCandidatePresent, interview?.status]);
 
-  // Persistent Timer Effect (Preserves elapsed timer across page refreshes)
-  useEffect(() => {
-    let interval: any = null;
-    if (isTimerActive && interview) {
-      const startMs = getSessionStartTimeMs(interview.transcript);
-      if (startMs) {
-        const updateTimer = () => {
-          const nowMs = Date.now();
-          const elapsedSecs = Math.max(0, Math.floor((nowMs - startMs) / 1000));
-          setElapsedSeconds(elapsedSecs);
-        };
-        updateTimer();
-        interval = setInterval(updateTimer, 1000);
-      } else {
-        interval = setInterval(() => {
-          setElapsedSeconds((prev) => prev + 1);
-        }, 1000);
-      }
-    }
-    return () => clearInterval(interval);
-  }, [isTimerActive, interview?.transcript, id]);
+  // Isolated Session Clock Component (Prevents parent InterviewWorkspace re-renders every 1s)
+  const SessionClock = ({ interviewId, isTimerActive, scheduledAt }: { interviewId: string; isTimerActive: boolean; scheduledAt?: string | Date | null }) => {
+    const [seconds, setSeconds] = useState(0);
 
-  const formatTimer = (totalSeconds: number) => {
-    const mins = Math.floor(totalSeconds / 60);
-    const secs = totalSeconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    useEffect(() => {
+      if (!isTimerActive) return;
+      const startMs = getSessionStartTimeMs(scheduledAt);
+
+      const updateTimer = () => {
+        if (startMs) {
+          const elapsedSecs = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+          setSeconds(elapsedSecs);
+        } else {
+          setSeconds((prev) => prev + 1);
+        }
+      };
+
+      updateTimer();
+      const interval = setInterval(updateTimer, 1000);
+      return () => clearInterval(interval);
+    }, [isTimerActive, scheduledAt, interviewId]);
+
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    const formatted = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+    return (
+      <Typography variant="body2" fontWeight={700} sx={{ color: '#F5F7FA', fontFamily: 'monospace', ml: 0.5 }}>
+        {formatted}
+      </Typography>
+    );
   };
 
   // Helper to parse transcript string into TranscriptLine items
   const parseLines = (rawTranscript?: string | null): TranscriptLine[] => {
     if (!rawTranscript) return [];
-    return rawTranscript.split('\n').filter(Boolean).map((lineStr, idx) => {
-      const isCand = lineStr.toLowerCase().startsWith('candidate:');
-      const isInter = lineStr.toLowerCase().startsWith('interviewer:');
-      let spk: 'Interviewer' | 'Candidate' = 'Interviewer';
-      let txt = lineStr;
+    return rawTranscript
+      .split('\n')
+      .filter((lineStr) => Boolean(lineStr.trim()) && !lineStr.includes('[SYSTEM]'))
+      .map((lineStr, idx) => {
+        const isCand = lineStr.toLowerCase().startsWith('candidate:');
+        const isInter = lineStr.toLowerCase().startsWith('interviewer:');
+        let spk: 'Interviewer' | 'Candidate' = 'Interviewer';
+        let txt = lineStr;
 
-      if (isCand) {
-        spk = 'Candidate';
-        txt = lineStr.replace(/^candidate:\s*/i, '');
-      } else if (isInter) {
-        spk = 'Interviewer';
-        txt = lineStr.replace(/^interviewer:\s*/i, '');
-      }
+        if (isCand) {
+          spk = 'Candidate';
+          txt = lineStr.replace(/^candidate:\s*/i, '');
+        } else if (isInter) {
+          spk = 'Interviewer';
+          txt = lineStr.replace(/^interviewer:\s*/i, '');
+        }
 
-      return {
-        id: `line-${idx}`,
-        speaker: spk,
-        text: txt,
-        timestamp: ''
-      };
-    });
+        return {
+          id: `line-${idx}`,
+          speaker: spk,
+          text: txt,
+          timestamp: ''
+        };
+      });
   };
 
   // Generate full transcript string
@@ -329,7 +328,7 @@ const InterviewWorkspace = () => {
     if (!id || loading) return;
     const interval = setInterval(async () => {
       try {
-        const latest = await interviewService.getInterviewById(id);
+        const latest = await interviewService.getInterviewSync(id);
 
         // Auto-end session for candidate if interviewer concluded session
         if (isCandidateUser && latest.status === 'COMPLETED') {
@@ -779,9 +778,7 @@ const InterviewWorkspace = () => {
             <Typography variant="caption" fontWeight={800} sx={{ color: '#ef4444', letterSpacing: '0.08em' }}>
               LIVE
             </Typography>
-            <Typography variant="body2" fontWeight={700} sx={{ color: '#F5F7FA', fontFamily: 'monospace', ml: 0.5 }}>
-              {formatTimer(elapsedSeconds)}
-            </Typography>
+            <SessionClock interviewId={id!} isTimerActive={isTimerActive} scheduledAt={interview?.scheduledAt} />
           </Box>
 
           {!isCandidateUser && (

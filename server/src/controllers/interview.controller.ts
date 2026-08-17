@@ -80,6 +80,19 @@ export const getInterviewById = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const getInterviewSync = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const interview = await interviewService.getInterviewSync(id);
+    res.json(interview);
+  } catch (error: any) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
+    res.status(500).json({ error: error.message || 'Error syncing interview' });
+  }
+};
+
 export const submitFeedback = async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user?.id) {

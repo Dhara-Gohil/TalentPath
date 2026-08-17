@@ -253,12 +253,12 @@ const AdminSettings = () => {
             </Typography>
 
             {/* Connection Status Box */}
-            <Paper sx={{ p: 2, bgcolor: '#0B0D10', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: '8px', mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Box>
+            <Paper sx={{ p: 2, bgcolor: '#0B0D10', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: '8px', mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+              <Box sx={{ minWidth: 0 }}>
                 <Typography variant="caption" sx={{ color: '#626975', display: 'block' }}>
                   OpenRouter API Gateway
                 </Typography>
-                <Typography variant="body2" fontWeight={600} sx={{ color: '#F5F7FA' }} className="font-mono">
+                <Typography variant="body2" fontWeight={600} sx={{ color: '#F5F7FA', wordBreak: 'break-all' }} className="font-mono">
                   https://openrouter.ai/api/v1
                 </Typography>
               </Box>
@@ -266,7 +266,7 @@ const AdminSettings = () => {
                 icon={<SuccessIcon sx={{ fontSize: '14px !important', color: '#10b981 !important' }} />}
                 label="Connected"
                 size="small"
-                sx={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: 600, border: '1px solid rgba(16, 185, 129, 0.3)' }}
+                sx={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: 600, border: '1px solid rgba(16, 185, 129, 0.3)', flexShrink: 0 }}
               />
             </Paper>
 

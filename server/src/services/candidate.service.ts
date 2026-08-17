@@ -40,8 +40,19 @@ export const candidateService = {
     const [data, total] = await Promise.all([
       prisma.candidate.findMany({
         where: whereClause,
-        include: {
-          job: { select: { title: true, department: true } },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          experienceYears: true,
+          skills: true,
+          status: true,
+          jobId: true,
+          userId: true,
+          createdAt: true,
+          updatedAt: true,
+          job: { select: { id: true, title: true, department: true } },
           interviews: { select: { id: true, type: true, status: true, scheduledAt: true, interviewerId: true } },
         },
         orderBy: { createdAt: 'desc' },

@@ -74,4 +74,30 @@ export const candidateService = {
     const { data } = await apiClient.get<MyCandidateApplication[]>('/candidate-portal/applications');
     return data;
   },
+
+  // Saved Resume Repository Methods
+  getSavedResumes: async (): Promise<any[]> => {
+    const { data } = await apiClient.get<any[]>('/candidate-portal/resumes');
+    return data;
+  },
+
+  createSavedResume: async (payload: { title: string; resumeText: string; setAsDefault?: boolean }): Promise<any> => {
+    const { data } = await apiClient.post<any>('/candidate-portal/resumes', payload);
+    return data;
+  },
+
+  updateSavedResume: async (id: string, payload: { title?: string; resumeText?: string; setAsDefault?: boolean }): Promise<any> => {
+    const { data } = await apiClient.put<any>(`/candidate-portal/resumes/${id}`, payload);
+    return data;
+  },
+
+  deleteSavedResume: async (id: string): Promise<{ message: string }> => {
+    const { data } = await apiClient.delete<{ message: string }>(`/candidate-portal/resumes/${id}`);
+    return data;
+  },
+
+  setDefaultResume: async (id: string): Promise<any> => {
+    const { data } = await apiClient.post<any>(`/candidate-portal/resumes/${id}/set-default`);
+    return data;
+  },
 };

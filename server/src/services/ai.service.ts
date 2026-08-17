@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 
-const AI_REQUEST_TIMEOUT_MS = Number(process.env.AI_REQUEST_TIMEOUT_MS) || 15000;
+const AI_REQUEST_TIMEOUT_MS = Number(process.env.AI_REQUEST_TIMEOUT_MS) || 45000;
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -50,7 +50,7 @@ export interface StructuredAiEvaluation {
 
 export interface StructuredInterviewSummary {
   summary: string;
-  recommendation: 'STRONG_YES' | 'YES' | 'MAYBE' | 'NO' | 'STRONG_NO';
+  recommendation: 'STRONG_YES' | 'YES' | 'MAYBE' | 'NO' | 'STRONG_NO' | 'PENDING_INTERVIEW_FEEDBACK' | 'INITIAL_SCREENING';
   reasoning: string;
   strengths: string[];
   weaknesses: string[];
@@ -201,8 +201,28 @@ export const aiService = {
     const candSkillsStr = candidate?.skills || '';
     const candExp = candidate?.experienceYears || 0;
 
+    const totalScorecards = feedbacks?.length || (roundInterviews ? roundInterviews.filter((r) => r.feedback && r.feedback.length > 0).length : 0);
+
+    // If candidate has 0 interview scorecards submitted yet (e.g. newly applied)
+    if (totalScorecards === 0) {
+      const candSkills = candSkillsStr ? candSkillsStr.split(',').map((s) => s.trim()).filter(Boolean) : [];
+      return {
+        summary: `Candidate has applied for ${jobTitle} (${candExp}+ years experience). 0 of 4 interview scorecards have been submitted so far. Interview evaluations are currently pending schedule or completion.`,
+        recommendation: 'PENDING_INTERVIEW_FEEDBACK',
+        reasoning: `No interviewer scorecards submitted yet across the hiring rounds. Evaluation currently reflects initial application screening data.`,
+        strengths: candSkills.length > 0 ? candSkills.slice(0, 3).map((s) => `Declared resume proficiency in ${s}`) : ['Relevant skills for target position'],
+        weaknesses: ['Interview scorecards pending — no verified interviewer scorecards submitted yet'],
+        roundAnalysis: {
+          technical: 'Pending Technical Round evaluation',
+          hr: 'Pending HR & Screening Round evaluation',
+          managerial: 'Pending Managerial Round evaluation',
+          cultural: 'Pending Cultural Fit Round evaluation',
+        },
+      };
+    }
+
     const prompt = `
-      You are an executive talent strategist synthesizing 4-round interview scorecards and interviewer evaluations.
+      You are an executive talent strategist synthesizing interview scorecards for a candidate who has completed ${totalScorecards} scorecard(s) out of 4 interview rounds.
       
       TARGET JOB:
       Title: ${jobTitle}
@@ -211,7 +231,7 @@ export const aiService = {
       Skills: ${candSkillsStr}
       Experience: ${candExp} Years
       
-      SUBMITTED INTERVIEW SCORECARDS & NOTES:
+      SUBMITTED INTERVIEW SCORECARDS & NOTES (${totalScorecards} Scorecard(s)):
       ${
         roundInterviews && roundInterviews.length > 0
           ? roundInterviews
@@ -248,16 +268,16 @@ export const aiService = {
       `
               )
               .join('\n')
-          : 'No interview scorecards submitted yet across interview rounds.'
+          : 'No interview scorecards submitted yet.'
       }
       
-      Synthesize the submitted scorecards across the interview rounds into JSON format matching this schema:
+      Synthesize ONLY the submitted scorecards into JSON format matching this schema:
       {
-        "summary": "Executive interview process summary synthesizing interviewer scorecards across rounds",
+        "summary": "Executive interview process summary synthesizing interviewer scorecards",
         "recommendation": "STRONG_YES or YES or MAYBE or NO or STRONG_NO",
-        "reasoning": "Detailed synthesis of interviewer ratings, comments, and scorecard recommendations",
-        "strengths": ["Interviewer verified strength 1", "Interviewer verified strength 2"],
-        "weaknesses": ["Interviewer red flag / risk area 1", "Interviewer red flag / risk area 2"],
+        "reasoning": "Detailed synthesis of interviewer ratings and comments",
+        "strengths": ["Interviewer verified strength 1"],
+        "weaknesses": ["Interviewer red flag / risk area 1"],
         "roundAnalysis": {
           "technical": "Takeaway summary from Technical round scorecard, or 'Pending evaluation' if no scorecard submitted yet",
           "hr": "Takeaway summary from HR & Screening round scorecard, or 'Pending evaluation' if no scorecard submitted yet",
@@ -298,17 +318,17 @@ export const aiService = {
         });
       }
 
-      const techTakeaway = roundInterviews?.find((r) => r.roundType === 'TECHNICAL')?.feedback?.[0]?.comments || 'Verified technical domain competence across coding and system design.';
-      const hrTakeaway = roundInterviews?.find((r) => r.roundType === 'HR')?.feedback?.[0]?.comments || 'Strong communication skills and background fit for the role.';
-      const managerialTakeaway = roundInterviews?.find((r) => r.roundType === 'MANAGERIAL')?.feedback?.[0]?.comments || 'Demonstrated pragmatic problem-solving and leadership mindset.';
-      const culturalTakeaway = roundInterviews?.find((r) => r.roundType === 'CULTURAL')?.feedback?.[0]?.comments || 'Good cultural fit and team collaboration alignment.';
+      const techTakeaway = roundInterviews?.find((r) => r.roundType === 'TECHNICAL')?.feedback?.[0]?.comments || (roundInterviews?.find(r => r.roundType === 'TECHNICAL') ? 'Technical interview completed, awaiting detailed notes.' : 'Pending Technical Round evaluation');
+      const hrTakeaway = roundInterviews?.find((r) => r.roundType === 'HR')?.feedback?.[0]?.comments || (roundInterviews?.find(r => r.roundType === 'HR') ? 'HR interview completed, awaiting detailed notes.' : 'Pending HR & Screening Round evaluation');
+      const managerialTakeaway = roundInterviews?.find((r) => r.roundType === 'MANAGERIAL')?.feedback?.[0]?.comments || (roundInterviews?.find(r => r.roundType === 'MANAGERIAL') ? 'Managerial interview completed, awaiting detailed notes.' : 'Pending Managerial Round evaluation');
+      const culturalTakeaway = roundInterviews?.find((r) => r.roundType === 'CULTURAL')?.feedback?.[0]?.comments || (roundInterviews?.find(r => r.roundType === 'CULTURAL') ? 'Cultural interview completed, awaiting detailed notes.' : 'Pending Cultural Fit Round evaluation');
 
       return {
-        summary: `The candidate brings ${candExp}+ years of hands-on experience proficient in ${candSkillsStr.slice(0, 70)}. Based on scorecards submitted across interview rounds, the candidate demonstrated solid technical depth and clear communication for the ${jobTitle} requisition.`,
+        summary: `Synthesized evaluation compiled from ${totalScorecards} submitted scorecard(s) across interview rounds for ${jobTitle}.`,
         recommendation: topRec,
         reasoning: `Synthesized evaluation compiled from interviewer scorecards and domain feedback for ${jobTitle}.`,
-        strengths: verifiedStrengths.length > 0 ? verifiedStrengths.slice(0, 3) : [`Strong proficiency in ${candSkillsStr.split(',')[0] || 'core stack'}`, 'Structured communication and problem-solving approach'],
-        weaknesses: identifiedWeaknesses.length > 0 ? identifiedWeaknesses.slice(0, 3) : ['Could expand further on large-scale product architecture trade-offs'],
+        strengths: verifiedStrengths.length > 0 ? verifiedStrengths.slice(0, 3) : [`Verified experience in ${candSkillsStr.split(',')[0] || 'core stack'}`],
+        weaknesses: identifiedWeaknesses.length > 0 ? identifiedWeaknesses.slice(0, 3) : ['No major red flags highlighted by interviewers'],
         roundAnalysis: {
           technical: techTakeaway,
           hr: hrTakeaway,

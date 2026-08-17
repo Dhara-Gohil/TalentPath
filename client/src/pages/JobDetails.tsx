@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Box, Typography, Card, Grid, Chip, Divider, Button, CircularProgress, Paper } from '@mui/material';
+import { Box, Typography, Card, Grid, Chip, Divider, Button, Skeleton, Paper } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
   Add as AddIcon,
@@ -58,8 +58,21 @@ const JobDetails = () => {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="60vh">
-        <CircularProgress size={32} sx={{ color: '#818cf8' }} />
+      <Box sx={{ p: { xs: 2, sm: 3 } }}>
+        <Paper sx={{ p: 3, backgroundColor: '#101318', borderRadius: '12px', mb: 3 }}>
+          <Skeleton variant="text" width={220} height={32} sx={{ bgcolor: 'rgba(255,255,255,0.06)', mb: 1 }} />
+          <Skeleton variant="text" width={340} height={20} sx={{ bgcolor: 'rgba(255,255,255,0.04)' }} />
+        </Paper>
+        <Grid container spacing={2} mb={3}>
+          {[1, 2, 3, 4].map((i) => (
+            <Grid item xs={12} sm={3} key={i}>
+              <Card sx={{ p: 2, backgroundColor: '#101318', borderRadius: '10px' }}>
+                <Skeleton variant="text" width="50%" height={18} sx={{ bgcolor: 'rgba(255,255,255,0.04)', mb: 1 }} />
+                <Skeleton variant="text" width="40%" height={28} sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} />
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
       </Box>
     );
   }
@@ -94,10 +107,11 @@ const JobDetails = () => {
   return (
     <Box
       sx={{
-        height: 'calc(100vh - 100px)',
+        minHeight: 'calc(100vh - 100px)',
+        height: { xs: 'auto', md: 'calc(100vh - 100px)' },
         display: 'flex',
         flexDirection: 'column',
-        overflow: 'hidden',
+        overflowY: { xs: 'auto', md: 'hidden' },
         gap: 2
       }}
     >
@@ -126,6 +140,7 @@ const JobDetails = () => {
               borderRadius: '8px',
               px: 2,
               height: 36,
+              whiteSpace: 'nowrap',
               '&:hover': { backgroundColor: '#4f46e5' }
             }}
           >
@@ -134,51 +149,55 @@ const JobDetails = () => {
         )}
       </Box>
 
-      {/* Funnel Metrics Stat Cards matching Main Dashboard Style */}
-      <Grid container spacing={2}>
+      {/* Funnel Metrics Stat Cards (CSS Grid Layout) */}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' },
+          gap: 2
+        }}
+      >
         {funnelCards.map((item, index) => (
-          <Grid item xs={12} sm={6} md={3} key={index}>
-            <Card sx={{ backgroundColor: '#101318', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '10px', p: 1.8 }}>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                <Typography color="#626975" variant="caption" fontWeight={600} sx={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  {item.title}
-                </Typography>
-                <Box sx={{ color: '#969DAA' }}>{item.icon}</Box>
-              </Box>
-              <Typography variant="h5" color="#F5F7FA" fontWeight={700} className="font-mono" sx={{ mb: 0.8 }}>
-                {item.value}
+          <Card key={index} sx={{ backgroundColor: '#101318', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '10px', p: 1.8 }}>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+              <Typography color="#626975" variant="caption" fontWeight={600} sx={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                {item.title}
               </Typography>
-              <Chip
-                label={item.badge}
-                size="small"
-                sx={{
-                  height: 18,
-                  fontSize: '0.65rem',
-                  backgroundColor: 'rgba(255, 255, 255, 0.04)',
-                  color: '#969DAA',
-                  border: '1px solid rgba(255, 255, 255, 0.06)'
-                }}
-              />
-            </Card>
-          </Grid>
+              <Box sx={{ color: '#969DAA' }}>{item.icon}</Box>
+            </Box>
+            <Typography variant="h5" color="#F5F7FA" fontWeight={700} className="font-mono" sx={{ mb: 0.8 }}>
+              {item.value}
+            </Typography>
+            <Chip
+              label={item.badge}
+              size="small"
+              sx={{
+                height: 18,
+                fontSize: '0.65rem',
+                backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                color: '#969DAA',
+                border: '1px solid rgba(255, 255, 255, 0.06)'
+              }}
+            />
+          </Card>
         ))}
-      </Grid>
+      </Box>
 
       {/* Main Job Requisition Info */}
       <Card
         sx={{
-          flex: 1,
+          flex: { xs: 'none', md: 1 },
           minHeight: 0,
           display: 'flex',
           flexDirection: 'column',
           backgroundColor: '#101318',
           border: '1px solid rgba(255, 255, 255, 0.08)',
           borderRadius: '12px',
-          p: 3,
-          overflow: 'hidden'
+          p: { xs: 2, sm: 3 },
+          overflow: { xs: 'visible', md: 'hidden' }
         }}
       >
-        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
+        <Box display="flex" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={1.5} mb={1.5}>
           <Box>
             <Typography variant="caption" sx={{ color: '#818cf8', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', mb: 0.5 }}>
               {job.department} Requisition

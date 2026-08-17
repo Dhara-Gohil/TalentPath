@@ -327,10 +327,36 @@ export const candidatePortalService = {
       where: {
         OR: [{ userId }, { email: user.email }],
       },
-      include: {
-        job: true,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        experienceYears: true,
+        skills: true,
+        status: true,
+        jobId: true,
+        createdAt: true,
+        updatedAt: true,
+        job: {
+          select: {
+            id: true,
+            title: true,
+            department: true,
+            location: true,
+            employmentType: true,
+            experienceRequired: true,
+            requiredSkills: true,
+          },
+        },
         interviews: {
-          include: {
+          select: {
+            id: true,
+            type: true,
+            status: true,
+            scheduledAt: true,
+            duration: true,
+            meetingLink: true,
             interviewer: { select: { id: true, name: true, email: true } },
           },
           orderBy: { scheduledAt: 'asc' },
@@ -340,5 +366,156 @@ export const candidatePortalService = {
     });
 
     return applications;
+  },
+
+  async getSavedResumes(userId: string) {
+    const resumes = await prisma.savedResume.findMany({
+      where: { userId },
+      orderBy: [{ isDefault: 'desc' }, { updatedAt: 'desc' }],
+    });
+    return resumes;
+  },
+
+  async createSavedResume(userId: string, data: { title: string; resumeText: string; setAsDefault?: boolean }) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw { statusCode: 404, message: 'User not found' };
+    }
+
+    const existingCount = await prisma.savedResume.count({ where: { userId } });
+    const isFirst = existingCount === 0;
+    const shouldBeDefault = data.setAsDefault || isFirst;
+
+    if (shouldBeDefault) {
+      await prisma.savedResume.updateMany({
+        where: { userId },
+        data: { isDefault: false },
+      });
+    }
+
+    const newResume = await prisma.savedResume.create({
+      data: {
+        userId,
+        title: data.title,
+        resumeText: data.resumeText,
+        isDefault: shouldBeDefault,
+      },
+    });
+
+    if (shouldBeDefault) {
+      const profile = await prisma.candidateProfile.findUnique({ where: { userId } });
+      if (profile) {
+        await prisma.candidateProfile.update({
+          where: { userId },
+          data: { resumeText: data.resumeText },
+        });
+      }
+    }
+
+    return newResume;
+  },
+
+  async updateSavedResume(userId: string, resumeId: string, data: { title?: string; resumeText?: string; setAsDefault?: boolean }) {
+    const existing = await prisma.savedResume.findFirst({
+      where: { id: resumeId, userId },
+    });
+    if (!existing) {
+      throw { statusCode: 404, message: 'Saved resume not found' };
+    }
+
+    if (data.setAsDefault) {
+      await prisma.savedResume.updateMany({
+        where: { userId },
+        data: { isDefault: false },
+      });
+    }
+
+    const updated = await prisma.savedResume.update({
+      where: { id: resumeId },
+      data: {
+        ...(data.title && { title: data.title }),
+        ...(data.resumeText && { resumeText: data.resumeText }),
+        ...(data.setAsDefault !== undefined && { isDefault: data.setAsDefault }),
+      },
+    });
+
+    if (updated.isDefault && updated.resumeText) {
+      const profile = await prisma.candidateProfile.findUnique({ where: { userId } });
+      if (profile) {
+        await prisma.candidateProfile.update({
+          where: { userId },
+          data: { resumeText: updated.resumeText },
+        });
+      }
+    }
+
+    return updated;
+  },
+
+  async deleteSavedResume(userId: string, resumeId: string) {
+    const existing = await prisma.savedResume.findFirst({
+      where: { id: resumeId, userId },
+    });
+    if (!existing) {
+      throw { statusCode: 404, message: 'Saved resume not found' };
+    }
+
+    await prisma.savedResume.delete({ where: { id: resumeId } });
+
+    if (existing.isDefault) {
+      const nextResume = await prisma.savedResume.findFirst({
+        where: { userId },
+        orderBy: { updatedAt: 'desc' },
+      });
+      if (nextResume) {
+        await prisma.savedResume.update({
+          where: { id: nextResume.id },
+          data: { isDefault: true },
+        });
+        await prisma.candidateProfile.update({
+          where: { userId },
+          data: { resumeText: nextResume.resumeText },
+        });
+      }
+    }
+
+    return { message: 'Saved resume deleted successfully' };
+  },
+
+  async setDefaultResume(userId: string, resumeId: string) {
+    const existing = await prisma.savedResume.findFirst({
+      where: { id: resumeId, userId },
+    });
+    if (!existing) {
+      throw { statusCode: 404, message: 'Saved resume not found' };
+    }
+
+    await prisma.savedResume.updateMany({
+      where: { userId },
+      data: { isDefault: false },
+    });
+
+    const updated = await prisma.savedResume.update({
+      where: { id: resumeId },
+      data: { isDefault: true },
+    });
+
+    await prisma.candidateProfile.upsert({
+      where: { userId },
+      create: {
+        userId,
+        name: existing.title,
+        email: '',
+        phone: '',
+        experienceYears: 0,
+        skills: '',
+        resumeText: existing.resumeText,
+      },
+      update: {
+        resumeText: existing.resumeText,
+      },
+    });
+
+    return updated;
   },
 };

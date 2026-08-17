@@ -237,7 +237,19 @@ const Layout = () => {
             <IconButton color="inherit" edge="start" onClick={handleDrawerToggle} sx={{ display: { sm: 'none' }, color: '#969DAA' }}>
               <MenuIcon />
             </IconButton>
-            <Typography variant="subtitle1" fontWeight={600} sx={{ color: '#F5F7FA', fontSize: '0.95rem' }}>
+            <Typography
+              variant="subtitle1"
+              fontWeight={600}
+              noWrap
+              sx={{
+                color: '#F5F7FA',
+                fontSize: { xs: '0.85rem', sm: '0.95rem' },
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                maxWidth: { xs: '180px', sm: '350px', md: 'none' }
+              }}
+            >
               {getPageTitle()}
             </Typography>
           </Box>

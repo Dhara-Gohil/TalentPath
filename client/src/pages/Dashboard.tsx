@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Grid, Card, Typography, Box, CircularProgress, Chip } from '@mui/material';
+import { Grid, Card, Typography, Box, Skeleton, Chip } from '@mui/material';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import {
   WorkOutline as WorkIcon,
@@ -25,8 +25,8 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         <Typography variant="caption" sx={{ color: '#626975', display: 'block', mb: 0.5, fontWeight: 600 }}>
           {label || payload[0].name}
         </Typography>
-        <Typography variant="body2" sx={{ color: '#F5F7FA', fontWeight: 700 }} className="font-mono">
-          {payload[0].value} {payload[0].value === 1 ? 'record' : 'records'}
+        <Typography variant="body2" sx={{ color: '#F5F7FA', fontWeight: 700 }}>
+          {payload[0].value} {payload[0].value === 1 ? 'Candidate' : 'Candidates'}
         </Typography>
       </Box>
     );
@@ -36,9 +36,10 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 const Dashboard = () => {
   const { user } = useAuth();
-  const isInterviewerRole = user?.role === 'INTERVIEWER';
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  const isInterviewerRole = user?.role === 'INTERVIEWER';
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -56,8 +57,36 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="60vh">
-        <CircularProgress size={32} sx={{ color: '#818cf8' }} />
+      <Box sx={{ p: { xs: 2, sm: 3 } }}>
+        <Box mb={4}>
+          <Skeleton variant="text" width={220} height={20} sx={{ bgcolor: 'rgba(255,255,255,0.06)', mb: 1 }} />
+          <Skeleton variant="text" width={320} height={36} sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} />
+        </Box>
+        <Grid container spacing={2} mb={4}>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Grid item xs={12} sm={6} md={2.4} key={i}>
+              <Card sx={{ backgroundColor: '#101318', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '10px', p: 2 }}>
+                <Skeleton variant="text" width="60%" height={16} sx={{ bgcolor: 'rgba(255,255,255,0.04)', mb: 1.5 }} />
+                <Skeleton variant="text" width="40%" height={32} sx={{ bgcolor: 'rgba(255,255,255,0.06)', mb: 1 }} />
+                <Skeleton variant="rounded" width="50%" height={18} sx={{ bgcolor: 'rgba(255,255,255,0.04)' }} />
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={7}>
+            <Card sx={{ backgroundColor: '#101318', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', p: 3 }}>
+              <Skeleton variant="text" width="40%" height={24} sx={{ bgcolor: 'rgba(255,255,255,0.06)', mb: 2 }} />
+              <Skeleton variant="rounded" height={220} sx={{ bgcolor: 'rgba(255,255,255,0.03)' }} />
+            </Card>
+          </Grid>
+          <Grid item xs={12} md={5}>
+            <Card sx={{ backgroundColor: '#101318', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', p: 3 }}>
+              <Skeleton variant="text" width="50%" height={24} sx={{ bgcolor: 'rgba(255,255,255,0.06)', mb: 2 }} />
+              <Skeleton variant="rounded" height={220} sx={{ bgcolor: 'rgba(255,255,255,0.03)' }} />
+            </Card>
+          </Grid>
+        </Grid>
       </Box>
     );
   }
@@ -104,35 +133,42 @@ const Dashboard = () => {
         />
       </Box>
 
-      {/* Metrics Row */}
-      <Grid container spacing={2} mb={4}>
+      {/* Metrics Row (CSS Grid Layout) */}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: isInterviewerMode
+            ? { xs: '1fr', sm: 'repeat(3, 1fr)' }
+            : { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)', lg: 'repeat(5, 1fr)' },
+          gap: 2,
+          mb: 4
+        }}
+      >
         {metricCards.map((item, index) => (
-          <Grid item xs={12} sm={6} md={isInterviewerMode ? 4 : 2.4} key={index}>
-            <Card sx={{ backgroundColor: '#101318', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '10px', p: 2 }}>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
-                <Typography color="#626975" variant="caption" fontWeight={600} sx={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  {item.title}
-                </Typography>
-                <Box sx={{ color: '#969DAA' }}>{item.icon}</Box>
-              </Box>
-              <Typography variant="h4" color="#F5F7FA" fontWeight={700} className="font-mono" sx={{ mb: 1 }}>
-                {item.value}
+          <Card key={index} sx={{ backgroundColor: '#101318', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '10px', p: 2 }}>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
+              <Typography color="#626975" variant="caption" fontWeight={600} sx={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                {item.title}
               </Typography>
-              <Chip
-                label={item.badge}
-                size="small"
-                sx={{
-                  height: 18,
-                  fontSize: '0.65rem',
-                  backgroundColor: 'rgba(255, 255, 255, 0.04)',
-                  color: '#969DAA',
-                  border: '1px solid rgba(255, 255, 255, 0.06)'
-                }}
-              />
-            </Card>
-          </Grid>
+              <Box sx={{ color: '#969DAA' }}>{item.icon}</Box>
+            </Box>
+            <Typography variant="h4" color="#F5F7FA" fontWeight={700} className="font-mono" sx={{ mb: 1 }}>
+              {item.value}
+            </Typography>
+            <Chip
+              label={item.badge}
+              size="small"
+              sx={{
+                height: 18,
+                fontSize: '0.65rem',
+                backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                color: '#969DAA',
+                border: '1px solid rgba(255, 255, 255, 0.06)'
+              }}
+            />
+          </Card>
         ))}
-      </Grid>
+      </Box>
 
       {/* Charts Section */}
       <Grid container spacing={2.5}>
