@@ -11,7 +11,14 @@ export const upsertProfileSchema = z.object({
 
 export const applyJobSchema = z.object({
   jobId: z.string().uuid('Invalid Job ID'),
+  resumeText: z.string().min(10, 'Resume or bio summary must be at least 10 characters').optional(),
+  name: z.string().optional(),
+  phone: z.string().optional(),
+  experienceYears: z.number().min(0).optional(),
+  skills: z.string().optional(),
+  updateProfileResume: z.boolean().optional(),
 });
 
 export type UpsertProfileInput = z.infer<typeof upsertProfileSchema>;
 export type ApplyJobInput = z.infer<typeof applyJobSchema>;
+

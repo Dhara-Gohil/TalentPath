@@ -21,9 +21,37 @@ export const candidatePortalService = {
       throw { statusCode: 404, message: 'User not found' };
     }
 
-    const profile = await prisma.candidateProfile.findUnique({
+    let profile = await prisma.candidateProfile.findUnique({
       where: { userId },
     });
+
+    // If profile is missing or has empty resumeText, check if candidate submitted any applications with resume text
+    if ((!profile || !profile.resumeText) && user) {
+      const lastApp = await prisma.candidate.findFirst({
+        where: { OR: [{ userId }, { email: user.email }] },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (lastApp && lastApp.resumeText) {
+        profile = await prisma.candidateProfile.upsert({
+          where: { userId },
+          create: {
+            userId,
+            name: lastApp.name || user.name,
+            email: user.email,
+            phone: lastApp.phone || '',
+            experienceYears: lastApp.experienceYears || 0,
+            skills: lastApp.skills || '',
+            resumeText: lastApp.resumeText,
+          },
+          update: {
+            resumeText: lastApp.resumeText,
+            ...(lastApp.phone && { phone: lastApp.phone }),
+            ...(lastApp.skills && { skills: lastApp.skills }),
+            ...(lastApp.experienceYears !== undefined && { experienceYears: lastApp.experienceYears }),
+          },
+        });
+      }
+    }
 
     return {
       user,
@@ -68,7 +96,33 @@ export const candidatePortalService = {
   },
 
   async generateProfileSummary(userId: string) {
-    const profile = await prisma.candidateProfile.findUnique({ where: { userId } });
+    let profile = await prisma.candidateProfile.findUnique({ where: { userId } });
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+
+    if ((!profile || !profile.resumeText) && user) {
+      const lastApp = await prisma.candidate.findFirst({
+        where: { OR: [{ userId }, { email: user.email }] },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (lastApp && lastApp.resumeText) {
+        profile = await prisma.candidateProfile.upsert({
+          where: { userId },
+          create: {
+            userId,
+            name: lastApp.name || user.name,
+            email: user.email,
+            phone: lastApp.phone || '',
+            experienceYears: lastApp.experienceYears || 0,
+            skills: lastApp.skills || '',
+            resumeText: lastApp.resumeText,
+          },
+          update: {
+            resumeText: lastApp.resumeText,
+          },
+        });
+      }
+    }
+
     if (!profile || !profile.resumeText) {
       throw {
         statusCode: 400,
@@ -94,8 +148,33 @@ export const candidatePortalService = {
   },
 
   async getSuitableJobs(userId: string) {
-    const profile = await prisma.candidateProfile.findUnique({ where: { userId } });
+    let profile = await prisma.candidateProfile.findUnique({ where: { userId } });
     const user = await prisma.user.findUnique({ where: { id: userId } });
+
+    // Fallback: If candidate profile resume is missing, check if user submitted an application with a resume
+    if ((!profile || !profile.resumeText) && user) {
+      const lastApp = await prisma.candidate.findFirst({
+        where: { OR: [{ userId }, { email: user.email }] },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (lastApp && lastApp.resumeText) {
+        profile = await prisma.candidateProfile.upsert({
+          where: { userId },
+          create: {
+            userId,
+            name: lastApp.name || user.name,
+            email: user.email,
+            phone: lastApp.phone || '',
+            experienceYears: lastApp.experienceYears || 0,
+            skills: lastApp.skills || '',
+            resumeText: lastApp.resumeText,
+          },
+          update: {
+            resumeText: lastApp.resumeText,
+          },
+        });
+      }
+    }
 
     // Fetch all job IDs candidate has ALREADY applied for
     const existingApps = user ? await prisma.candidate.findMany({
@@ -165,7 +244,8 @@ export const candidatePortalService = {
     return enrichedJobs;
   },
 
-  async applyForJob(userId: string, jobId: string) {
+  async applyForJob(userId: string, data: { jobId: string; resumeText?: string; name?: string; phone?: string; experienceYears?: number; skills?: string; updateProfileResume?: boolean }) {
+    const { jobId, resumeText, name, phone, experienceYears, skills, updateProfileResume } = data;
     let profile = await prisma.candidateProfile.findUnique({ where: { userId } });
     const user = await prisma.user.findUnique({ where: { id: userId } });
 
@@ -173,20 +253,35 @@ export const candidatePortalService = {
       throw { statusCode: 404, message: 'User not found' };
     }
 
-    if (!profile) {
-      profile = {
-        id: '',
-        userId,
-        name: user.name,
-        email: user.email,
-        phone: '',
-        experienceYears: 0,
-        skills: '',
-        resumeText: 'Application submitted via Candidate Portal.',
-        aiSummary: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+    const finalResumeText = (resumeText && resumeText.trim().length > 0)
+      ? resumeText
+      : (profile?.resumeText || 'Application submitted via candidate portal.');
+
+    const finalName = name || profile?.name || user.name;
+    const finalPhone = phone || profile?.phone || '';
+    const finalExpYears = experienceYears !== undefined ? experienceYears : (profile?.experienceYears || 0);
+    const finalSkills = skills || profile?.skills || '';
+
+    // Upsert profile if requested, or if profile doesn't exist, or if stored resumeText is empty
+    if (updateProfileResume || !profile || !profile.resumeText || profile.resumeText.trim() === '') {
+      profile = await prisma.candidateProfile.upsert({
+        where: { userId },
+        create: {
+          userId,
+          name: finalName,
+          email: user.email,
+          phone: finalPhone,
+          experienceYears: finalExpYears,
+          skills: finalSkills,
+          resumeText: finalResumeText,
+        },
+        update: {
+          resumeText: finalResumeText,
+          ...(finalPhone && { phone: finalPhone }),
+          ...(finalExpYears !== undefined && { experienceYears: finalExpYears }),
+          ...(finalSkills && { skills: finalSkills }),
+        },
+      });
     }
 
     const job = await prisma.job.findUnique({ where: { id: jobId } });
@@ -209,12 +304,12 @@ export const candidatePortalService = {
       data: {
         jobId,
         userId,
-        name: profile.name || user.name,
+        name: finalName,
         email: profile.email || user.email,
-        phone: profile.phone || '',
-        experienceYears: profile.experienceYears || 0,
-        skills: profile.skills || '',
-        resumeText: profile.resumeText || 'Application submitted via candidate portal.',
+        phone: finalPhone,
+        experienceYears: finalExpYears,
+        skills: finalSkills,
+        resumeText: finalResumeText,
         status: 'APPLIED',
       },
     });

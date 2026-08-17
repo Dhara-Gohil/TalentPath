@@ -36,6 +36,16 @@ export interface MyCandidateApplication extends Candidate {
   interviews: Interview[];
 }
 
+export interface ApplyJobPayload {
+  jobId: string;
+  resumeText?: string;
+  name?: string;
+  phone?: string;
+  experienceYears?: number;
+  skills?: string;
+  updateProfileResume?: boolean;
+}
+
 export interface User {
   id: string;
   name: string;

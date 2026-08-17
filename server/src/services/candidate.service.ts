@@ -95,12 +95,38 @@ export const candidateService = {
       throw { statusCode: 404, message: 'Job not found' };
     }
 
-    return prisma.candidate.create({
+    const candidateUser = await prisma.user.findUnique({ where: { email: data.email } });
+
+    const newCandidate = await prisma.candidate.create({
       data: {
         ...data,
+        userId: candidateUser?.id || undefined,
         status: 'APPLIED',
       },
     });
+
+    if (candidateUser) {
+      await prisma.candidateProfile.upsert({
+        where: { userId: candidateUser.id },
+        create: {
+          userId: candidateUser.id,
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          experienceYears: data.experienceYears,
+          skills: data.skills,
+          resumeText: data.resumeText,
+        },
+        update: {
+          resumeText: data.resumeText,
+          skills: data.skills,
+          experienceYears: data.experienceYears,
+          phone: data.phone,
+        },
+      });
+    }
+
+    return newCandidate;
   },
 
   async updateCandidate(id: string, data: UpdateCandidateInput) {

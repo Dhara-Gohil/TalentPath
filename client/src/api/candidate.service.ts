@@ -9,6 +9,7 @@ import type {
   CandidateProfileSummary,
   SuitableJobItem,
   MyCandidateApplication,
+  ApplyJobPayload,
 } from './types';
 
 export const candidateService = {
@@ -63,8 +64,9 @@ export const candidateService = {
     return data;
   },
 
-  applyForJob: async (jobId: string): Promise<Candidate> => {
-    const { data } = await apiClient.post<Candidate>('/candidate-portal/apply', { jobId });
+  applyForJob: async (payload: string | ApplyJobPayload): Promise<Candidate> => {
+    const requestBody = typeof payload === 'string' ? { jobId: payload } : payload;
+    const { data } = await apiClient.post<Candidate>('/candidate-portal/apply', requestBody);
     return data;
   },
 

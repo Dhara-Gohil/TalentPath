@@ -62,8 +62,8 @@ export const applyForJob = async (req: AuthRequest, res: Response) => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Authentication required' });
 
-    const { jobId } = applyJobSchema.parse(req.body);
-    const candidateRecord = await candidatePortalService.applyForJob(userId, jobId);
+    const inputData = applyJobSchema.parse(req.body);
+    const candidateRecord = await candidatePortalService.applyForJob(userId, inputData);
     res.status(201).json(candidateRecord);
   } catch (error: any) {
     if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });

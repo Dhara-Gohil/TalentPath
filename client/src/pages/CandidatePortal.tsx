@@ -16,10 +16,13 @@ import {
   Star as StarIcon,
   AutoAwesome as AiIcon,
   CheckCircle as CheckIcon,
+  FileUpload as UploadIcon,
 } from '@mui/icons-material';
 import { candidateService } from '../api/candidate.service';
 import type { CandidateProfile, CandidateProfileSummary, SuitableJobItem, MyCandidateApplication, CandidateStatus } from '../api/types';
 import { candidateStatusColor } from '../theme/statusColors';
+import ApplyJobModal from '../components/ApplyJobModal';
+import { renderFormattedText } from '../utils/textFormatter';
 
 const PIPELINE_STAGES: CandidateStatus[] = ['APPLIED', 'SCREENING', 'SHORTLISTED', 'INTERVIEW', 'HIRED'];
 
@@ -61,6 +64,8 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
   const [jobError, setJobError] = useState('');
   const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
   const [applySuccess, setApplySuccess] = useState('');
+  const [applyModalOpen, setApplyModalOpen] = useState(false);
+  const [selectedJobForApply, setSelectedJobForApply] = useState<SuitableJobItem | null>(null);
 
   // Applications State
   const [applications, setApplications] = useState<MyCandidateApplication[]>([]);
@@ -75,7 +80,11 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
   // Trigger tab data fetching when tab prop changes
   useEffect(() => {
     if (tab === 'jobs' && jobs.length === 0) {
-      loadSuitableJobs();
+      if (profile.resumeText && profile.resumeText.length >= 10) {
+        candidateService.updateProfile(profile).then(() => loadSuitableJobs()).catch(() => loadSuitableJobs());
+      } else {
+        loadSuitableJobs();
+      }
     } else if (tab === 'applications') {
       loadMyApplications();
       const interval = setInterval(() => {
@@ -83,7 +92,7 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
       }, 3000);
       return () => clearInterval(interval);
     }
-  }, [tab]);
+  }, [tab, profile]);
 
   const loadProfile = async () => {
     setProfileLoading(true);
@@ -130,6 +139,20 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
     }
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const text = event.target?.result as string;
+        if (text) {
+          setProfile(prev => ({ ...prev, resumeText: text }));
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+
   const handleGenerateAiSummary = async () => {
     if (!profile.resumeText || profile.resumeText.length < 10) {
       setSummaryError('Please add your resume or bio summary details before generating AI Summary.');
@@ -166,6 +189,9 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
     setMatchingJobs(true);
     setJobError('');
     try {
+      if (profile.resumeText && profile.resumeText.length >= 10) {
+        await candidateService.updateProfile(profile);
+      }
       const data = await candidateService.getSuitableJobs();
       setJobs(data);
     } catch (err: any) {
@@ -175,18 +201,30 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
     }
   };
 
-  const handleApplyForJob = async (jobId: string) => {
-    setApplyingJobId(jobId);
+  const handleOpenApplyModal = (job: SuitableJobItem) => {
+    setSelectedJobForApply(job);
+    setApplyModalOpen(true);
+  };
+
+  const handleConfirmApply = async (payload: { jobId: string; resumeText: string; updateProfileResume: boolean }) => {
+    setApplyingJobId(payload.jobId);
     setJobError('');
     setApplySuccess('');
     try {
-      await candidateService.applyForJob(jobId);
-      setApplySuccess('Job application submitted successfully! Your application is now in the recruitment pipeline.');
-      setTimeout(() => setApplySuccess(''), 5000);
+      await candidateService.applyForJob({
+        jobId: payload.jobId,
+        resumeText: payload.resumeText,
+        updateProfileResume: payload.updateProfileResume,
+      });
+      setApplySuccess('Job application submitted successfully with your confirmed resume! Your application is now in the recruitment pipeline.');
+      setTimeout(() => setApplySuccess(''), 6000);
       loadSuitableJobs();
       loadMyApplications();
+      loadProfile();
     } catch (err: any) {
-      setJobError(err.response?.data?.error || err.message || 'Failed to submit job application');
+      const msg = err.response?.data?.error || err.message || 'Failed to submit job application';
+      setJobError(msg);
+      throw err;
     } finally {
       setApplyingJobId(null);
     }
@@ -456,9 +494,51 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
                     </Grid>
 
                     <Grid item xs={12}>
-                      <Typography variant="caption" sx={{ color: '#C3C9D5', fontWeight: 600, mb: 0.6, display: 'block' }}>
-                        Resume / Bio Text
-                      </Typography>
+                      <Box display="flex" alignItems="center" justifyContent="space-between" mb={0.8}>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <Typography variant="caption" sx={{ color: '#C3C9D5', fontWeight: 600 }}>
+                            Candidate Stored Resume / Bio Text
+                          </Typography>
+                          {profile.resumeText && (
+                            <Chip
+                              icon={<CheckIcon sx={{ fontSize: '12px !important', color: '#34d399' }} />}
+                              label="Stored in Profile"
+                              size="small"
+                              sx={{
+                                height: 20,
+                                fontSize: '0.65rem',
+                                fontWeight: 700,
+                                backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                color: '#34d399',
+                                border: '1px solid rgba(16, 185, 129, 0.3)',
+                              }}
+                            />
+                          )}
+                        </Box>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <Typography variant="caption" sx={{ color: '#626975', fontSize: '0.72rem' }}>
+                            {profile.resumeText.length} chars
+                          </Typography>
+                          <Button
+                            component="label"
+                            variant="outlined"
+                            size="small"
+                            startIcon={<UploadIcon sx={{ fontSize: 13 }} />}
+                            sx={{
+                              py: 0.2,
+                              px: 1,
+                              fontSize: '0.72rem',
+                              borderRadius: '6px',
+                              color: '#818cf8',
+                              borderColor: 'rgba(99, 102, 241, 0.3)',
+                              '&:hover': { borderColor: '#818cf8', backgroundColor: 'rgba(99, 102, 241, 0.08)' }
+                            }}
+                          >
+                            Import File
+                            <input type="file" accept=".txt,.md,.text" hidden onChange={handleFileUpload} />
+                          </Button>
+                        </Box>
+                      </Box>
                       <TextField
                         fullWidth
                         multiline
@@ -495,8 +575,8 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
                     borderRadius: '8px',
                     fontWeight: 700,
                     backgroundColor: '#6366f1',
-                    boxShadow: '0 4px 18px rgba(99, 102, 241, 0.4)',
-                    '&:hover': { backgroundColor: '#4f46e5' },
+                    boxShadow: 'none !important',
+                    '&:hover': { backgroundColor: '#4f46e5', boxShadow: 'none !important' },
                   }}
                 >
                   {savingProfile ? 'Saving Profile...' : 'Save Profile Details'}
@@ -740,9 +820,26 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
                         )}
                       </Box>
 
-                      <Typography variant="body2" sx={{ color: '#CBD5E1', mb: 2, lineHeight: 1.5, fontSize: '0.86rem' }}>
-                        {job.description}
-                      </Typography>
+                      <Box
+                        sx={{
+                          maxHeight: 180,
+                          overflowY: 'auto',
+                          mb: 2,
+                          p: 1.5,
+                          backgroundColor: '#0F1219',
+                          borderRadius: '8px',
+                          border: '1px solid rgba(255, 255, 255, 0.05)',
+                          '&::-webkit-scrollbar': {
+                            width: '4px',
+                          },
+                          '&::-webkit-scrollbar-thumb': {
+                            backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                            borderRadius: '4px',
+                          },
+                        }}
+                      >
+                        {renderFormattedText(job.description)}
+                      </Box>
 
                       <Box mb={2}>
                         <Typography variant="caption" sx={{ color: '#626975', fontWeight: 600, textTransform: 'uppercase', display: 'block', mb: 0.6 }}>
@@ -786,14 +883,15 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
                         variant="contained"
                         size="small"
                         disabled={applyingJobId === job.id}
-                        onClick={() => handleApplyForJob(job.id)}
+                        onClick={() => handleOpenApplyModal(job)}
                         startIcon={applyingJobId === job.id ? <CircularProgress size={14} color="inherit" /> : <SendIcon sx={{ fontSize: 14 }} />}
                         sx={{
                           borderRadius: '6px',
                           fontWeight: 700,
                           fontSize: '0.8rem',
                           backgroundColor: '#6366f1',
-                          '&:hover': { backgroundColor: '#4f46e5' },
+                          boxShadow: 'none !important',
+                          '&:hover': { backgroundColor: '#4f46e5', boxShadow: 'none !important' },
                         }}
                       >
                         {applyingJobId === job.id ? 'Submitting...' : 'Apply Now'}
@@ -1102,6 +1200,15 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
           )}
         </Box>
       )}
+
+      {/* Confirmation & Resume Customization Modal for Job Application */}
+      <ApplyJobModal
+        open={applyModalOpen}
+        onClose={() => setApplyModalOpen(false)}
+        job={selectedJobForApply}
+        profile={profile}
+        onConfirmApply={handleConfirmApply}
+      />
     </Box>
   );
 };
