@@ -620,7 +620,7 @@ export const aiService = {
     }
   },
 
-  // 6. AI Copilot: Generate Draft Feedback Scorecard (STRICTLY FROM TRANSCRIPT)
+  // 6. AI Copilot: Generate Draft Feedback Scorecard (STRICTLY FROM HIGHLIGHTED TECHNICAL TRANSCRIPT EXCHANGES)
   async generateCopilotFeedbackDraft(
     candidate: CandidateContext & { name?: string },
     job: JobContext,
@@ -633,15 +633,31 @@ export const aiService = {
     const candSkillsStr = candidate?.skills || 'Engineering';
     const candExp = candidate?.experienceYears || 0;
 
+    // Extract highlighted technical Q&A exchanges tagged with [TECH]
+    const rawLines = (transcript || '').split('\n').filter(Boolean);
+    const techQaExchanges: string[] = [];
+    let isCurrentExchangeTech = false;
+
+    for (const line of rawLines) {
+      if (line.includes('[TECH]')) {
+        techQaExchanges.push(line.replace(/\[TECH\]/g, '').trim());
+        isCurrentExchangeTech = true;
+      } else if (isCurrentExchangeTech && line.toLowerCase().startsWith('candidate:')) {
+        techQaExchanges.push(line.trim());
+      } else {
+        isCurrentExchangeTech = false;
+      }
+    }
+
     const candidateAnswersList = (transcript || '')
       .split('\n')
       .filter(l => l.toLowerCase().startsWith('candidate:'))
       .map(l => l.replace(/^candidate:\s*/i, '').trim())
       .filter(Boolean);
 
-    const actualAnswersText = candidateAnswersList.length > 0
-      ? candidateAnswersList.join(' | ')
-      : 'No explicit candidate responses were logged in transcript.';
+    const highlightedText = techQaExchanges.length > 0
+      ? techQaExchanges.join('\n')
+      : (transcript || 'No explicit technical dialogue recorded.');
 
     const prompt = `
       You are an executive talent strategist synthesizing a completed live interview transcript into a final interview scorecard & summary.
@@ -657,16 +673,17 @@ export const aiService = {
       
       INTERVIEW ROUND TYPE: ${interviewType || 'TECHNICAL'}
       
+      HIGHLIGHTED TECHNICAL QUESTION & ANSWER EXCHANGES (PRIMARY SYNTHESIS FOCUS):
+      ${highlightedText}
+      
       FULL LIVE INTERVIEW TRANSCRIPT:
       ${transcript || '(No transcript dialogue recorded)'}
       
-      CANDIDATE'S ACTUAL EXTRACTED ANSWERS:
-      ${actualAnswersText}
-      
       CRITICAL INSTRUCTION:
-      The "summary", "comments", "strengths", and "weaknesses" MUST BE STRICTLY AND DIRECTLY SYNTHESIZED FROM THE CANDIDATE'S ACTUAL TRANSCRIPT DIALOGUE AND ANSWERS ("${actualAnswersText}").
+      The "summary", "comments", "technicalRating", "strengths", and "weaknesses" MUST BE STRICTLY AND DIRECTLY SYNTHESIZED FROM THE HIGHLIGHTED TECHNICAL QUESTION & ANSWER EXCHANGES ABOVE ("${highlightedText.slice(0, 1500)}").
+      - Focus on candidate's exact technical responses to asked questions.
       - DO NOT invent or hallucinate candidate statements that were not exchanged during this interview session.
-      - If the candidate answered questions, summarize their exact answers, technical points, and communication style.
+      - If the candidate answered technical questions, summarize their exact answers, technical depth, and communication style.
       - If minimal text was recorded, state clearly what was discussed during the ${interviewType || 'technical'} round.
       
       Synthesize the interview and generate a structured JSON feedback draft matching EXACTLY this schema:
@@ -675,11 +692,11 @@ export const aiService = {
         "communicationRating": integer between 1 and 10,
         "problemSolvingRating": integer between 1 and 10,
         "cultureFitRating": integer between 1 and 10,
-        "strengths": "Bullet points detailing verified strengths directly evidenced in candidate's answers",
-        "weaknesses": "Bullet points detailing specific gaps or areas to explore further based on candidate answers",
-        "comments": "Qualitative synthesis strictly based on candidate responses during the session",
+        "strengths": "Bullet points detailing verified strengths directly evidenced in candidate's highlighted answers",
+        "weaknesses": "Bullet points detailing specific gaps or areas to explore further based on candidate's highlighted answers",
+        "comments": "Qualitative synthesis strictly based on candidate's highlighted Q&A responses during the session",
         "recommendation": "STRONG_YES or YES or MAYBE or NO or STRONG_NO",
-        "summary": "Executive interview summary strictly derived from candidate's actual transcript dialogue"
+        "summary": "Executive interview summary strictly derived from candidate's highlighted technical transcript dialogue"
       }
     `;
 
@@ -756,13 +773,13 @@ export const aiService = {
         CANDIDATE RESUME SKILLS: ${candSkillsStr}
         
         SKILLS ANALYSIS:
-        - MATCHED SKILLS (In JD & Resume): ${matchedSkills.length > 0 ? matchedSkills.join(', ') : 'None identified'}
-        - MISSING SKILLS (In JD but missing from Resume): ${missingSkills.length > 0 ? missingSkills.join(', ') : 'All skills matched'}
+        - MATCHED SKILLS (Present in both JD & Resume): ${matchedSkills.length > 0 ? matchedSkills.join(', ') : 'None identified'}
+        - MISSING SKILLS (Required in JD but missing from Candidate Resume): ${missingSkills.length > 0 ? missingSkills.join(', ') : 'All required skills matched on resume'}
         ${targetTopic ? `SELECTED FOCUS TOPIC: ${targetTopic}` : ''}
         
         GENERATE EXACTLY 4 HIGH-IMPACT TECHNICAL QUESTIONS:
-        1. For Matched Skills: Generate technical verification questions that test deep technical mastery, edge cases, and architectural trade-offs (Do NOT assume mastery just because it is on the resume).
-        2. For Missing Skills: Generate technical probing questions targeting required JD skills that are absent from the candidate's resume to evaluate unlisted capability.
+        1. Matched Skill Questions: Generate technical verification questions for skills present in both JD & resume, testing deep technical mastery, edge cases, and architectural trade-offs.
+        2. Missing Skill Questions: Generate technical probing questions targeting required JD skills that are absent from the candidate's resume to evaluate unlisted capability during the interview.
         
         Provide structured JSON matching EXACTLY this schema:
         {

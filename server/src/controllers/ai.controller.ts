@@ -15,16 +15,13 @@ export const evaluateCandidateResume = async (req: AuthRequest, res: Response) =
 
     let newStatus = context.candidate.status;
     const rec = (evaluation.recommendation || '').toUpperCase();
-    if (rec.includes('STRONG_YES') || rec.includes('YES')) {
-      if (['APPLIED', 'SCREENING', 'INTERVIEW'].includes(context.candidate.status)) {
+
+    // AI Intelligence Evaluation must never auto-REJECT or auto-HIRE a candidate.
+    // Allowed target statuses from AI evaluation are SCREENING or SHORTLISTED max.
+    if (context.candidate.status === 'APPLIED' || context.candidate.status === 'SCREENING') {
+      if (rec.includes('STRONG_YES') || rec.includes('YES')) {
         newStatus = 'SHORTLISTED';
-      }
-    } else if (rec.includes('STRONG_NO') || rec.includes('NO')) {
-      if (context.candidate.status !== 'HIRED') {
-        newStatus = 'REJECTED';
-      }
-    } else if (rec.includes('MAYBE')) {
-      if (context.candidate.status === 'APPLIED') {
+      } else {
         newStatus = 'SCREENING';
       }
     }

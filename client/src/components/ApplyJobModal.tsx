@@ -30,6 +30,7 @@ import {
 import type { SuitableJobItem, CandidateProfile, SavedResume } from '../api/types';
 import { candidateService } from '../api/candidate.service';
 import { renderFormattedText } from '../utils/textFormatter';
+import { showToast } from '../utils/toast';
 
 interface Props {
   open: boolean;
@@ -99,8 +100,13 @@ const ApplyJobModal: React.FC<Props> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!resumeText || resumeText.trim().length < 10) {
-      setError('Please provide a valid resume or bio summary (at least 10 characters).');
+    const trimmed = resumeText ? resumeText.trim() : '';
+    const lineCount = trimmed.split('\n').filter((l) => l.trim().length > 0).length;
+
+    if (!trimmed || trimmed.length < 50 || lineCount < 3) {
+      const msg = 'Please upload or provide a detailed resume (at least 3 lines) to submit your job application.';
+      setError(msg);
+      showToast.warning(msg);
       return;
     }
 

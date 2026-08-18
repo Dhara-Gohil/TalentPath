@@ -207,13 +207,21 @@ export const candidatePortalService = {
       orderBy: { createdAt: 'desc' },
     });
 
-    if (!profile || !profile.resumeText) {
+    const isResumeBrief = (text?: string | null) => {
+      if (!text) return true;
+      const trimmed = text.trim();
+      if (trimmed.length < 50) return true;
+      const lines = trimmed.split('\n').filter((l) => l.trim().length > 0);
+      return lines.length < 3;
+    };
+
+    if (!profile || isResumeBrief(profile.resumeText)) {
       return openJobs.map((j) => ({
         ...j,
         matchScore: 0,
         matchingSkills: [],
         missingSkills: [],
-        fitRationale: 'Fill out your profile and resume details to get AI job matching analysis.',
+        fitRationale: 'Please upload or update a complete resume (minimum 3 lines) in your candidate profile to enable AI job matching.',
       }));
     }
 

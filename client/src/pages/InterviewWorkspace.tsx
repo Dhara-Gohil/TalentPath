@@ -35,6 +35,7 @@ interface TranscriptLine {
   speaker: 'Interviewer' | 'Candidate';
   text: string;
   timestamp: string;
+  isTechnical?: boolean;
 }
 
 const PRESET_SCRIPTS: Record<string, Array<{ speaker: 'Interviewer' | 'Candidate'; text: string }>> = {
@@ -161,6 +162,10 @@ const InterviewWorkspace = () => {
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [usedQuestionTexts, setUsedQuestionTexts] = useState<string[]>([]);
 
+  // Highlighted Technical Q&A input states
+  const [nextIsTechnical, setNextIsTechnical] = useState(false);
+  const [isTechInputToggle, setIsTechInputToggle] = useState(false);
+
   // Feedback Draft & End Interview State
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [feedbackDraft, setFeedbackDraft] = useState<CopilotFeedbackDraft | null>(null);
@@ -263,31 +268,37 @@ const InterviewWorkspace = () => {
       .split('\n')
       .filter((lineStr) => Boolean(lineStr.trim()) && !lineStr.includes('[SYSTEM]'))
       .map((lineStr, idx) => {
-        const isCand = lineStr.toLowerCase().startsWith('candidate:');
-        const isInter = lineStr.toLowerCase().startsWith('interviewer:');
+        const isTech = lineStr.includes('[TECH]');
+        const cleanedStr = lineStr.replace(/\[TECH\]/g, '').trim();
+
+        const isCand = cleanedStr.toLowerCase().startsWith('candidate:');
+        const isInter = cleanedStr.toLowerCase().startsWith('interviewer:');
         let spk: 'Interviewer' | 'Candidate' = 'Interviewer';
-        let txt = lineStr;
+        let txt = cleanedStr;
 
         if (isCand) {
           spk = 'Candidate';
-          txt = lineStr.replace(/^candidate:\s*/i, '');
+          txt = cleanedStr.replace(/^candidate:\s*/i, '');
         } else if (isInter) {
           spk = 'Interviewer';
-          txt = lineStr.replace(/^interviewer:\s*/i, '');
+          txt = cleanedStr.replace(/^interviewer:\s*/i, '');
         }
 
         return {
           id: `line-${idx}`,
           speaker: spk,
           text: txt,
-          timestamp: ''
+          timestamp: '',
+          isTechnical: isTech
         };
       });
   };
 
   // Generate full transcript string
   const getFullTranscriptText = () => {
-    return transcriptLines.map((l) => `${l.speaker}: ${l.text}`).join('\n');
+    return transcriptLines
+      .map((l) => `${l.speaker}${l.isTechnical ? ' [TECH]' : ''}: ${l.text}`)
+      .join('\n');
   };
 
   // Fetch Interview details
@@ -432,17 +443,28 @@ const InterviewWorkspace = () => {
   // Add dialogue line
   const handleAddDialogue = () => {
     if (!inputDialogue.trim()) return;
+
+    // Determine if line should be tagged as technical Q&A
+    const lastLineWasTech = transcriptLines.length > 0 && Boolean(transcriptLines[transcriptLines.length - 1].isTechnical);
+    const isTechLine = isCandidateUser
+      ? lastLineWasTech
+      : (nextIsTechnical || isTechInputToggle);
+
     const newLine: TranscriptLine = {
       id: `line-${Date.now()}`,
       speaker: currentSpeaker,
       text: inputDialogue.trim(),
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      isTechnical: isTechLine
     };
     const updated = [...transcriptLines, newLine];
     setTranscriptLines(updated);
     setInputDialogue('');
+    setNextIsTechnical(false);
 
-    const updatedText = updated.map((l) => `${l.speaker}: ${l.text}`).join('\n');
+    const updatedText = updated
+      .map((l) => `${l.speaker}${l.isTechnical ? ' [TECH]' : ''}: ${l.text}`)
+      .join('\n');
     interviewService.saveTranscript(id!, updatedText).catch(() => { });
     if (!isCandidateUser) {
       runCopilotAnalysis(updatedText);
@@ -916,6 +938,7 @@ const InterviewWorkspace = () => {
               transcriptLines.map((line, idx) => {
                 const isInterviewer = line.speaker === 'Interviewer';
                 const isMyMessage = line.speaker === currentSpeaker;
+                const isTech = line.isTechnical;
                 return (
                   <Box
                     key={line.id || idx}
@@ -935,6 +958,21 @@ const InterviewWorkspace = () => {
                       >
                         {isInterviewer ? `Interviewer (${interview.interviewer?.name || 'Staff'})` : `Candidate (${candidate?.name || 'Candidate'})`}
                       </Typography>
+                      {isTech && (
+                        <Chip
+                          label="✦ Technical Q&A"
+                          size="small"
+                          sx={{
+                            height: 16,
+                            fontSize: '0.62rem',
+                            fontWeight: 700,
+                            backgroundColor: 'rgba(6, 182, 212, 0.2)',
+                            color: '#06b6d4',
+                            border: '1px solid rgba(6, 182, 212, 0.4)',
+                            px: 0.5
+                          }}
+                        />
+                      )}
                       {line.timestamp && (
                         <Typography variant="caption" sx={{ color: '#474d57', fontSize: '0.65rem' }}>
                           {line.timestamp}
@@ -946,12 +984,17 @@ const InterviewWorkspace = () => {
                       sx={{
                         p: 1.5,
                         borderRadius: isMyMessage ? '12px 2px 12px 12px' : '2px 12px 12px 12px',
-                        bgcolor: isMyMessage
+                        bgcolor: isTech
+                          ? 'rgba(6, 182, 212, 0.18)'
+                          : isMyMessage
                           ? isCandidateUser ? 'rgba(6, 182, 212, 0.15)' : 'rgba(99, 102, 241, 0.15)'
                           : isInterviewer ? 'rgba(99, 102, 241, 0.1)' : 'rgba(6, 182, 212, 0.1)',
-                        border: isMyMessage
+                        border: isTech
+                          ? '1px solid #06b6d4'
+                          : isMyMessage
                           ? isCandidateUser ? '1px solid rgba(6, 182, 212, 0.4)' : '1px solid rgba(99, 102, 241, 0.4)'
                           : isInterviewer ? '1px solid rgba(99, 102, 241, 0.25)' : '1px solid rgba(6, 182, 212, 0.25)',
+                        boxShadow: isTech ? '0 0 12px rgba(6, 182, 212, 0.25)' : 'none',
                         color: '#F5F7FA',
                         fontSize: '0.83rem',
                         lineHeight: 1.45,
@@ -1039,6 +1082,30 @@ const InterviewWorkspace = () => {
                 }
               }}
             />
+
+            {!isCandidateUser && (
+              <Tooltip title={isTechInputToggle ? "Technical Question Mode Active (Click to disable)" : "Toggle Technical Question Mode (Highlights message in cyan Q&A)"}>
+                <Chip
+                  icon={<AiIcon sx={{ fontSize: '14px !important', color: isTechInputToggle ? '#06b6d4' : '#626975' }} />}
+                  label="Tech Question"
+                  size="small"
+                  onClick={() => setIsTechInputToggle(!isTechInputToggle)}
+                  sx={{
+                    height: 38,
+                    px: 1,
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    bgcolor: isTechInputToggle ? 'rgba(6, 182, 212, 0.2)' : 'rgba(255, 255, 255, 0.04)',
+                    color: isTechInputToggle ? '#06b6d4' : '#969DAA',
+                    border: isTechInputToggle ? '1px solid #06b6d4' : '1px solid rgba(255, 255, 255, 0.1)',
+                    '&:hover': {
+                      bgcolor: 'rgba(6, 182, 212, 0.25)'
+                    }
+                  }}
+                />
+              </Tooltip>
+            )}
 
             <Tooltip title={isListening ? 'Stop Mic Recording' : 'Start Speech Input (Mic)'}>
               <IconButton
@@ -1301,6 +1368,7 @@ const InterviewWorkspace = () => {
                                   onClick={() => {
                                     setUsedQuestionTexts((prev) => [...prev, q.question]);
                                     setInputDialogue(q.question);
+                                    setNextIsTechnical(true);
                                   }}
                                   sx={{ fontSize: '0.68rem', py: 0.2, px: 1, color: '#06b6d4', fontWeight: 700 }}
                                 >
@@ -1397,51 +1465,67 @@ const InterviewWorkspace = () => {
                     Standardized interview evaluation prompts for the <strong>{interview?.type}</strong> round. Select any prompt below to insert directly into your live dialogue stream:
                   </Typography>
 
-                  {(interview?.type === 'HR'
-                    ? HR_QUESTION_BANK
-                    : interview?.type === 'MANAGERIAL'
-                      ? MANAGERIAL_QUESTION_BANK
-                      : CULTURAL_QUESTION_BANK
-                  ).map((item, idx) => (
-                    <Paper
-                      key={idx}
-                      elevation={0}
-                      sx={{
-                        p: 1.8,
-                        bgcolor: '#0B0D10',
-                        border: '1px solid rgba(255,255,255,0.06)',
-                        borderRadius: '8px'
-                      }}
-                    >
-                      <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                        <Chip
-                          label={item.category}
-                          size="small"
+                  {(() => {
+                    const questionBank = interview?.type === 'HR'
+                      ? HR_QUESTION_BANK
+                      : interview?.type === 'MANAGERIAL'
+                        ? MANAGERIAL_QUESTION_BANK
+                        : CULTURAL_QUESTION_BANK;
+
+                    const availableNonTechQuestions = questionBank.filter(
+                      (q) => !usedQuestionTexts.includes(q.question)
+                    );
+
+                    return availableNonTechQuestions.length > 0 ? (
+                      availableNonTechQuestions.map((item, idx) => (
+                        <Paper
+                          key={idx}
+                          elevation={0}
                           sx={{
-                            height: 20,
-                            fontSize: '0.68rem',
-                            fontWeight: 700,
-                            bgcolor: 'rgba(6, 182, 212, 0.15)',
-                            color: '#06b6d4',
-                            border: '1px solid rgba(6, 182, 212, 0.3)'
+                            p: 1.8,
+                            bgcolor: '#0B0D10',
+                            border: '1px solid rgba(255,255,255,0.06)',
+                            borderRadius: '8px'
                           }}
-                        />
-                        <Button
-                          size="small"
-                          onClick={() => setInputDialogue(item.question)}
-                          sx={{ fontSize: '0.7rem', py: 0.2, px: 1, color: '#818cf8', fontWeight: 700 }}
                         >
-                          Use Question
-                        </Button>
-                      </Box>
-                      <Typography variant="body2" fontWeight={600} sx={{ color: '#F5F7FA', fontSize: '0.83rem', mb: 0.8, lineHeight: 1.5 }}>
-                        "{item.question}"
+                          <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                            <Chip
+                              label={item.category}
+                              size="small"
+                              sx={{
+                                height: 20,
+                                fontSize: '0.68rem',
+                                fontWeight: 700,
+                                bgcolor: 'rgba(6, 182, 212, 0.15)',
+                                color: '#06b6d4',
+                                border: '1px solid rgba(6, 182, 212, 0.3)'
+                              }}
+                            />
+                            <Button
+                              size="small"
+                              onClick={() => {
+                                setUsedQuestionTexts((prev) => [...prev, item.question]);
+                                setInputDialogue(item.question);
+                              }}
+                              sx={{ fontSize: '0.7rem', py: 0.2, px: 1, color: '#818cf8', fontWeight: 700 }}
+                            >
+                              Use Question
+                            </Button>
+                          </Box>
+                          <Typography variant="body2" fontWeight={600} sx={{ color: '#F5F7FA', fontSize: '0.83rem', mb: 0.8, lineHeight: 1.5 }}>
+                            "{item.question}"
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: '#626975', fontSize: '0.72rem', display: 'block', fontStyle: 'italic' }}>
+                            Objective: {item.reasoning}
+                          </Typography>
+                        </Paper>
+                      ))
+                    ) : (
+                      <Typography variant="caption" sx={{ color: '#626975', display: 'block', mt: 1 }}>
+                        All questions from the {interview?.type} question bank have been asked for this session.
                       </Typography>
-                      <Typography variant="caption" sx={{ color: '#626975', fontSize: '0.72rem', display: 'block', fontStyle: 'italic' }}>
-                        Objective: {item.reasoning}
-                      </Typography>
-                    </Paper>
-                  ))}
+                    );
+                  })()}
                 </Box>
               </>
             )}

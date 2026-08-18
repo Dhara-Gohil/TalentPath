@@ -30,8 +30,17 @@ import type { CandidateProfile, CandidateProfileSummary, SuitableJobItem, MyCand
 import { candidateStatusColor } from '../theme/statusColors';
 import ApplyJobModal from '../components/ApplyJobModal';
 import { renderFormattedText } from '../utils/textFormatter';
+import { showToast } from '../utils/toast';
 
 const PIPELINE_STAGES: CandidateStatus[] = ['APPLIED', 'SCREENING', 'SHORTLISTED', 'INTERVIEW', 'HIRED'];
+
+const isResumeInsufficient = (resumeText?: string | null): boolean => {
+  if (!resumeText) return true;
+  const trimmed = resumeText.trim();
+  if (trimmed.length < 50) return true;
+  const lines = trimmed.split('\n').filter((l) => l.trim().length > 0);
+  return lines.length < 3;
+};
 
 const getPipelineStepIndex = (status: CandidateStatus): number => {
   if (status === 'REJECTED') return -1;
@@ -260,8 +269,9 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
   };
 
   const handleGenerateAiSummary = async () => {
-    if (!profile.resumeText || profile.resumeText.length < 10) {
-      setSummaryError('Please add your resume or bio summary details before generating AI Summary.');
+    if (isResumeInsufficient(profile.resumeText)) {
+      showToast.warning('Your resume is missing or does not have enough information (at least 3 lines required). Please upload or update your resume.');
+      setSummaryError('Resume details are missing or too brief (at least 3 lines required). Please upload or add more details to your resume.');
       return;
     }
 
@@ -292,6 +302,12 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
   };
 
   const handleRunAiJobMatching = async () => {
+    if (isResumeInsufficient(profile.resumeText)) {
+      showToast.warning('Your resume is missing or does not have enough information (at least 3 lines required). Please upload or update your resume to find your best matching jobs.');
+      setJobError('Your resume is missing or does not contain enough information (minimum 3 lines required) to find your best matching jobs. Please update your resume in the Profile tab.');
+      return;
+    }
+
     setMatchingJobs(true);
     setJobError('');
     try {
@@ -300,6 +316,7 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
       }
       const data = await candidateService.getSuitableJobs();
       setJobs(data);
+      showToast.success('AI job matching computed successfully based on your resume!');
     } catch (err: any) {
       setJobError(err.response?.data?.error || err.message || 'Failed to compute AI job recommendations');
     } finally {
@@ -308,6 +325,9 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
   };
 
   const handleOpenApplyModal = (job: SuitableJobItem) => {
+    if (isResumeInsufficient(profile.resumeText)) {
+      showToast.warning('Your profile resume is missing or too brief. Please upload or provide a detailed resume (at least 3 lines) to submit your job application.');
+    }
     setSelectedJobForApply(job);
     setApplyModalOpen(true);
   };
@@ -1175,6 +1195,27 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
               </Typography>
             </Box>
           </Box>
+
+          {isResumeInsufficient(profile.resumeText) && (
+            <Alert
+              severity="warning"
+              action={
+                <Button color="inherit" size="small" onClick={() => navigate('/candidate-portal/profile')}>
+                  Upload Resume Now
+                </Button>
+              }
+              sx={{
+                mb: 3,
+                borderRadius: '12px',
+                bgcolor: 'rgba(245, 158, 11, 0.1)',
+                color: '#fbbf24',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                '& .MuiAlert-icon': { color: '#fbbf24' }
+              }}
+            >
+              Your profile resume is missing or has insufficient details (at least 3 lines required). Please upload or update your resume in the Profile tab to find your best matching jobs!
+            </Alert>
+          )}
 
           {jobError && (
             <Alert severity="error" sx={{ mb: 3, borderRadius: '8px' }}>
