@@ -269,25 +269,24 @@ const InterviewWorkspace = () => {
       .filter((lineStr) => Boolean(lineStr.trim()) && !lineStr.includes('[SYSTEM]'))
       .map((lineStr, idx) => {
         const isTech = lineStr.includes('[TECH]');
-        const cleanedStr = lineStr.replace(/\[TECH\]/g, '').trim();
+        let cleanedStr = lineStr.replace(/\[TECH\]/g, '').trim();
 
-        const isCand = cleanedStr.toLowerCase().startsWith('candidate:');
-        const isInter = cleanedStr.toLowerCase().startsWith('interviewer:');
-        let spk: 'Interviewer' | 'Candidate' = 'Interviewer';
-        let txt = cleanedStr;
+        let detectedSpeaker: 'Interviewer' | 'Candidate' | null = null;
+        const prefixRegex = /^(Interviewer|Candidate)\s*:\s*/i;
 
-        if (isCand) {
-          spk = 'Candidate';
-          txt = cleanedStr.replace(/^candidate:\s*/i, '');
-        } else if (isInter) {
-          spk = 'Interviewer';
-          txt = cleanedStr.replace(/^interviewer:\s*/i, '');
+        while (prefixRegex.test(cleanedStr)) {
+          const match = cleanedStr.match(prefixRegex);
+          if (match) {
+            const spkStr = match[1].toLowerCase();
+            detectedSpeaker = spkStr === 'candidate' ? 'Candidate' : 'Interviewer';
+            cleanedStr = cleanedStr.replace(prefixRegex, '').trim();
+          }
         }
 
         return {
-          id: `line-${idx}`,
-          speaker: spk,
-          text: txt,
+          id: `line-${idx}-${Date.now()}`,
+          speaker: detectedSpeaker || 'Interviewer',
+          text: cleanedStr,
           timestamp: '',
           isTechnical: isTech
         };
@@ -546,34 +545,13 @@ const InterviewWorkspace = () => {
   // Handle Paste Full Transcript
   const handleApplyPasteTranscript = () => {
     if (!rawPasteText.trim()) return;
-    const rawLines = rawPasteText.split('\n').filter(Boolean);
-    const parsed: TranscriptLine[] = rawLines.map((lineStr, idx) => {
-      const isCand = lineStr.toLowerCase().startsWith('candidate:');
-      const isInter = lineStr.toLowerCase().startsWith('interviewer:');
-      let spk: 'Interviewer' | 'Candidate' = currentSpeaker;
-      let txt = lineStr;
-
-      if (isCand) {
-        spk = 'Candidate';
-        txt = lineStr.replace(/^candidate:\s*/i, '');
-      } else if (isInter) {
-        spk = 'Interviewer';
-        txt = lineStr.replace(/^interviewer:\s*/i, '');
-      }
-
-      return {
-        id: `paste-${idx}-${Date.now()}`,
-        speaker: spk,
-        text: txt,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-    });
+    const parsed = parseLines(rawPasteText);
 
     setTranscriptLines(parsed);
     setPasteModalOpen(false);
     setRawPasteText('');
 
-    const updatedText = parsed.map((l) => `${l.speaker}: ${l.text}`).join('\n');
+    const updatedText = parsed.map((l) => `${l.speaker}${l.isTechnical ? ' [TECH]' : ''}: ${l.text}`).join('\n');
     interviewService.saveTranscript(id!, updatedText).catch(() => { });
     if (!isCandidateUser) {
       runCopilotAnalysis(updatedText);

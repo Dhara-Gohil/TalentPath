@@ -1,5 +1,6 @@
 import prisma from '../lib/prisma';
 import { ScheduleInterviewInput, UpdateInterviewInput, UpdateInterviewStatusInput } from '../schemas/interview.schema';
+import { aiService } from './ai.service';
 
 export interface InterviewQueryFilters {
   status?: string;
@@ -272,7 +273,6 @@ export const interviewService = {
       });
     }
 
-    const { aiService } = await import('./ai.service');
     return aiService.analyzeLiveCopilotTranscript(
       {
         name: candidate.name || 'Candidate',
@@ -324,7 +324,6 @@ export const interviewService = {
       },
     });
 
-    const { aiService } = await import('./ai.service');
     return aiService.generateCopilotFeedbackDraft(
       {
         name: candidate.name || 'Candidate',
@@ -366,7 +365,6 @@ export const interviewService = {
     const job = candidate.job;
     const transcriptText = interview.transcript ?? '';
 
-    const { aiService } = await import('./ai.service');
     return aiService.generateCopilotQuestions(
       {
         name: candidate.name || 'Candidate',
