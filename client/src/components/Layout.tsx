@@ -107,7 +107,7 @@ const Layout = () => {
 
   const staffMenuItems = [
     { text: 'Dashboard', icon: <DashboardIcon sx={{ fontSize: 20 }} />, path: '/dashboard', roles: ['ADMIN', 'RECRUITER', 'INTERVIEWER'] },
-    { text: 'Job Openings', icon: <WorkIcon sx={{ fontSize: 20 }} />, path: '/jobs', roles: ['ADMIN', 'RECRUITER'] },
+    { text: 'Job Openings', icon: <WorkIcon sx={{ fontSize: 20 }} />, path: '/jobs', roles: ['ADMIN', 'RECRUITER', 'INTERVIEWER'] },
     { text: 'All Participants', icon: <ParticipantsIcon sx={{ fontSize: 20 }} />, path: '/candidates', roles: ['ADMIN', 'RECRUITER', 'INTERVIEWER'] },
     { text: 'Admin Settings', icon: <SettingsIcon sx={{ fontSize: 20 }} />, path: '/admin-settings', roles: ['ADMIN'] },
   ];

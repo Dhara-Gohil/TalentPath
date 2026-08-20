@@ -12,11 +12,12 @@ import {
   deleteSavedResume,
   setDefaultResume,
 } from '../controllers/candidatePortal.controller';
-import { authenticate } from '../middleware/auth.middleware';
+import { authenticate, authorize } from '../middleware/auth.middleware';
 
 const router = Router();
 
 router.use(authenticate as any);
+router.use(authorize(['CANDIDATE']) as any);
 
 router.get('/profile', getProfile as any);
 router.put('/profile', updateProfile as any);

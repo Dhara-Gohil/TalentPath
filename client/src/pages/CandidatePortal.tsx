@@ -177,8 +177,9 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
       await candidateService.deleteSavedResume(resumeId);
       await loadSavedResumes();
       await loadProfile();
+      showToast.success('Saved resume deleted successfully!');
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to delete saved resume');
+      showToast.apiError(err, 'Failed to delete saved resume');
     }
   };
 
@@ -187,8 +188,9 @@ const CandidatePortal = ({ tab = 'profile' }: CandidatePortalProps) => {
       await candidateService.setDefaultResume(resumeId);
       await loadSavedResumes();
       await loadProfile();
+      showToast.success('Default resume updated successfully!');
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to set default resume');
+      showToast.apiError(err, 'Failed to set default resume');
     }
   };
 

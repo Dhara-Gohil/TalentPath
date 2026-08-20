@@ -16,6 +16,7 @@ import {
 import apiClient from '../api/client';
 import { interviewService } from '../api/interview.service';
 import { useAuth } from '../contexts/AuthContext';
+import { showToast } from '../utils/toast';
 
 export interface RoundDef {
   type: 'TECHNICAL' | 'HR' | 'MANAGERIAL' | 'CULTURAL';
@@ -84,9 +85,10 @@ const InterviewTracePipeline = ({
     setDeletingId(interviewId);
     try {
       await apiClient.delete(`/interviews/${interviewId}`);
+      showToast.success('Interview round session cancelled and deleted');
       onRefresh();
-    } catch (err) {
-      alert('Failed to delete interview session');
+    } catch (err: any) {
+      showToast.apiError(err, 'Failed to delete interview session');
     } finally {
       setDeletingId(null);
     }

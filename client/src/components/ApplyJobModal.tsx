@@ -118,10 +118,12 @@ const ApplyJobModal: React.FC<Props> = ({
         resumeText: resumeText.trim(),
         updateProfileResume: updateProfile
       });
+      showToast.success(`Successfully submitted application for ${job.title}!`);
       onClose();
     } catch (err: any) {
       const msg = err.response?.data?.error || err.message || 'Failed to submit application';
       setError(msg);
+      showToast.apiError(err, 'Failed to submit job application');
     } finally {
       setIsSubmitting(false);
     }

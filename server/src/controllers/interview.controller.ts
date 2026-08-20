@@ -70,7 +70,7 @@ export const getInterviews = async (req: AuthRequest, res: Response) => {
 export const getInterviewById = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const interview = await interviewService.getInterviewById(id, req.user?.role);
+    const interview = await interviewService.getInterviewById(id, req.user?.role, req.user?.id);
     res.json(interview);
   } catch (error: any) {
     if (error.statusCode) {
@@ -83,7 +83,7 @@ export const getInterviewById = async (req: AuthRequest, res: Response) => {
 export const getInterviewSync = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const interview = await interviewService.getInterviewSync(id);
+    const interview = await interviewService.getInterviewSync(id, req.user?.role, req.user?.id);
     res.json(interview);
   } catch (error: any) {
     if (error.statusCode) {
@@ -133,7 +133,7 @@ export const saveTranscript = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { transcript } = req.body;
-    const result = await interviewService.saveTranscript(id, transcript || '');
+    const result = await interviewService.saveTranscript(id, transcript || '', req.user?.role, req.user?.id);
     res.json(result);
   } catch (error: any) {
     if (error.statusCode) {
@@ -147,7 +147,7 @@ export const analyzeCopilot = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { transcript, targetTopic } = req.body || {};
-    const analysis = await interviewService.analyzeCopilot(id, transcript, targetTopic);
+    const analysis = await interviewService.analyzeCopilot(id, transcript, targetTopic, req.user?.role, req.user?.id);
     res.json(analysis);
   } catch (error: any) {
     if (error.statusCode) {
@@ -161,7 +161,7 @@ export const generateCopilotFeedback = async (req: AuthRequest, res: Response) =
   try {
     const { id } = req.params;
     const { transcript } = req.body;
-    const feedbackDraft = await interviewService.generateCopilotFeedback(id, transcript);
+    const feedbackDraft = await interviewService.generateCopilotFeedback(id, transcript, req.user?.role, req.user?.id);
     res.json(feedbackDraft);
   } catch (error: any) {
     if (error.statusCode) {
@@ -175,7 +175,7 @@ export const regenerateCopilotQuestions = async (req: AuthRequest, res: Response
   try {
     const { id } = req.params;
     const { targetTopic } = req.body || {};
-    const result = await interviewService.regenerateCopilotQuestions(id, targetTopic);
+    const result = await interviewService.regenerateCopilotQuestions(id, targetTopic, req.user?.role, req.user?.id);
     res.json(result);
   } catch (error: any) {
     if (error.statusCode) {

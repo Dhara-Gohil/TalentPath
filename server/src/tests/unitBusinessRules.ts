@@ -165,7 +165,7 @@ async function runDirectTests() {
   console.log('--- TEST 5: Password Leakage Audit across Queries ---');
   const userMe = await authService.getMe(admin.id);
   const fetchedCandidate = await candidateService.getCandidateById(candidate.id);
-  const fetchedInterview = await interviewService.getInterviewById(interview.id);
+  const fetchedInterview = await interviewService.getInterviewById(interview.id, admin.role, admin.id);
 
   const meHasPassword = 'password' in userMe || 'passwordHash' in userMe;
   const candString = JSON.stringify(fetchedCandidate);
@@ -179,6 +179,23 @@ async function runDirectTests() {
     console.log('✓ PASS: Zero password leakage across all user and related user object queries.\n');
   } else {
     console.log('✗ FAIL: Password leaked in query results!\n');
+  }
+
+  // TEST 6: Missing Role/ID Identity Context Validation on Interview Lookup
+  console.log('--- TEST 6: Missing User Role/ID Context Validation ---');
+  let t6Status = 0;
+  let t6Error = '';
+  try {
+    await interviewService.getAuthorizedInterview(interview.id);
+  } catch (err: any) {
+    t6Status = err.statusCode;
+    t6Error = err.message;
+  }
+  console.log(`Attempted getAuthorizedInterview without role/id: StatusCode=${t6Status}, Error='${t6Error}'`);
+  if (t6Status === 401 && t6Error.includes('Authentication required')) {
+    console.log('✓ PASS: Missing user identity context correctly rejected with 401 Unauthorized.\n');
+  } else {
+    console.log('✗ FAIL: Expected 401 Unauthorized\n');
   }
 
   // Clean up

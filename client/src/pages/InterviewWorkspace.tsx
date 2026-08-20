@@ -516,7 +516,7 @@ const InterviewWorkspace = () => {
   };
 
   // Handle Paste Full Transcript
-  const handleApplyPasteTranscript = () => {
+  const handleApplyPasteTranscript = async () => {
     if (!rawPasteText.trim()) return;
     const parsed = parseLines(rawPasteText);
 
@@ -525,9 +525,14 @@ const InterviewWorkspace = () => {
     setRawPasteText('');
 
     const updatedText = parsed.map((l) => `${l.speaker}${l.isTechnical ? ' [TECH]' : ''}: ${l.text}`).join('\n');
-    interviewService.saveTranscript(id!, updatedText).catch(() => { });
-    if (!isCandidateUser) {
-      runCopilotAnalysis(updatedText);
+    try {
+      await interviewService.saveTranscript(id!, updatedText);
+      showToast.success('Interview transcript imported successfully!');
+      if (!isCandidateUser) {
+        runCopilotAnalysis(updatedText);
+      }
+    } catch (err: any) {
+      showToast.apiError(err, 'Failed to save imported interview transcript');
     }
   };
 
@@ -536,11 +541,16 @@ const InterviewWorkspace = () => {
     setClearConfirmModalOpen(true);
   };
 
-  const confirmClearTranscript = () => {
+  const confirmClearTranscript = async () => {
     setTranscriptLines([]);
     setCopilotAnalysis(null);
-    interviewService.saveTranscript(id!, '').catch(() => { });
     setClearConfirmModalOpen(false);
+    try {
+      await interviewService.saveTranscript(id!, '');
+      showToast.success('Interview transcript reset.');
+    } catch (err: any) {
+      showToast.apiError(err, 'Failed to reset interview transcript');
+    }
   };
 
   // Trigger End Interview & Feedback Draft Modal (Interviewer Only)
@@ -564,17 +574,17 @@ const InterviewWorkspace = () => {
       setRecommendation(draft.recommendation || 'YES');
     } catch (err) {
       console.error('Failed to generate feedback draft', err);
+      showToast.apiError(err, 'Failed to generate AI feedback draft');
     } finally {
       setGeneratingDraft(false);
     }
   };
 
-  // Submit Final Feedback Scorecard
+  // Submit Final Feedback Scorecard (Atomic feedback creation + session completion)
   const handleSubmitFeedback = async () => {
     if (!id || !interview) return;
     setSubmittingFeedback(true);
     try {
-      await interviewService.updateInterviewStatus(id, 'COMPLETED');
       await apiClient.post(`/interviews/${id}/feedback`, {
         technicalRating,
         communicationRating,
@@ -586,10 +596,11 @@ const InterviewWorkspace = () => {
         recommendation
       });
 
+      showToast.success('Final feedback scorecard submitted successfully!');
       setFeedbackModalOpen(false);
       navigate(isCandidateUser ? '/candidate-portal/applications' : `/candidates/${interview.candidateId}`);
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to submit feedback scorecard');
+      showToast.apiError(err, 'Failed to submit feedback scorecard');
     } finally {
       setSubmittingFeedback(false);
     }

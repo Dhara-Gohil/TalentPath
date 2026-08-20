@@ -44,7 +44,11 @@ export const interviewService = {
     });
   },
 
-  async getInterviewById(id: string, userRole?: string) {
+  async getAuthorizedInterview(id: string, userRole?: string, userId?: string) {
+    if (!userRole || !userId) {
+      throw { statusCode: 401, message: 'Authentication required: User identity context (role and user ID) is required.' };
+    }
+
     const interview = await prisma.interview.findUnique({
       where: { id },
       select: {
@@ -69,10 +73,11 @@ export const interviewService = {
             phone: true,
             experienceYears: true,
             skills: true,
+            resumeText: true,
             status: true,
             jobId: true,
             userId: true,
-            job: { select: { id: true, title: true, department: true } },
+            job: { select: { id: true, title: true, department: true, description: true, requiredSkills: true } },
           },
         },
         interviewer: { select: { id: true, name: true, email: true } },
@@ -83,6 +88,26 @@ export const interviewService = {
     if (!interview) {
       throw { statusCode: 404, message: 'Interview not found' };
     }
+
+    // Identity Authorization Verification:
+    if (userRole === 'INTERVIEWER') {
+      if (interview.interviewerId !== userId) {
+        throw { statusCode: 403, message: 'Access denied: You are not authorized to view or join an interview session assigned to another interviewer.' };
+      }
+    } else if (userRole === 'CANDIDATE') {
+      const candUser = await prisma.user.findUnique({ where: { id: userId } });
+      const matchesUserId = interview.candidate.userId === userId;
+      const matchesEmail = candUser && candUser.email.toLowerCase() === interview.candidate.email.toLowerCase();
+      if (!matchesUserId && !matchesEmail) {
+        throw { statusCode: 403, message: 'Access denied: You are not authorized to view or join another candidate\'s interview session.' };
+      }
+    }
+
+    return interview;
+  },
+
+  async getInterviewById(id: string, userRole?: string, userId?: string) {
+    const interview = await this.getAuthorizedInterview(id, userRole, userId);
 
     if (userRole === 'CANDIDATE' && !interview.startedAt && interview.status !== 'COMPLETED' && interview.status !== 'CANCELLED') {
       const now = new Date();
@@ -100,23 +125,15 @@ export const interviewService = {
     return interview;
   },
 
-  async getInterviewSync(id: string) {
-    const interview = await prisma.interview.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        status: true,
-        transcript: true,
-        startedAt: true,
-        updatedAt: true,
-      },
-    });
-
-    if (!interview) {
-      throw { statusCode: 404, message: 'Interview not found' };
-    }
-
-    return interview;
+  async getInterviewSync(id: string, userRole?: string, userId?: string) {
+    const interview = await this.getAuthorizedInterview(id, userRole, userId);
+    return {
+      id: interview.id,
+      status: interview.status,
+      transcript: interview.transcript,
+      startedAt: interview.startedAt,
+      updatedAt: interview.updatedAt,
+    };
   },
 
   async scheduleInterview(data: ScheduleInterviewInput) {
@@ -195,7 +212,12 @@ export const interviewService = {
       throw { statusCode: 403, message: 'You are not authorized to update an interview assigned to another interviewer' };
     }
 
-    const updateData: any = { ...data };
+    const updateData: any = {};
+    if (data.interviewerId) updateData.interviewerId = data.interviewerId;
+    if (data.duration) updateData.duration = data.duration;
+    if (data.type) updateData.type = data.type;
+    if (data.meetingLink !== undefined) updateData.meetingLink = data.meetingLink;
+    if (data.notes !== undefined) updateData.notes = data.notes;
     if (data.scheduledAt) {
       updateData.scheduledAt = new Date(data.scheduledAt);
     }
@@ -244,11 +266,8 @@ export const interviewService = {
     return { message: 'Interview session cancelled & deleted' };
   },
 
-  async saveTranscript(id: string, transcript: string) {
-    const existing = await prisma.interview.findUnique({ where: { id } });
-    if (!existing) {
-      throw { statusCode: 404, message: 'Interview not found' };
-    }
+  async saveTranscript(id: string, transcript: string, userRole?: string, userId?: string) {
+    await this.getAuthorizedInterview(id, userRole, userId);
 
     return prisma.interview.update({
       where: { id },
@@ -256,21 +275,8 @@ export const interviewService = {
     });
   },
 
-  async analyzeCopilot(id: string, customTranscript?: string, targetTopic?: string) {
-    const interview = await prisma.interview.findUnique({
-      where: { id },
-      include: {
-        candidate: {
-          include: {
-            job: true,
-          },
-        },
-      },
-    });
-
-    if (!interview) {
-      throw { statusCode: 404, message: 'Interview not found' };
-    }
+  async analyzeCopilot(id: string, customTranscript?: string, targetTopic?: string, userRole?: string, userId?: string) {
+    const interview = await this.getAuthorizedInterview(id, userRole, userId);
 
     const candidate = interview.candidate;
     if (!candidate) {
@@ -306,21 +312,8 @@ export const interviewService = {
     );
   },
 
-  async generateCopilotFeedback(id: string, customTranscript?: string) {
-    const interview = await prisma.interview.findUnique({
-      where: { id },
-      include: {
-        candidate: {
-          include: {
-            job: true,
-          },
-        },
-      },
-    });
-
-    if (!interview) {
-      throw { statusCode: 404, message: 'Interview not found' };
-    }
+  async generateCopilotFeedback(id: string, customTranscript?: string, userRole?: string, userId?: string) {
+    const interview = await this.getAuthorizedInterview(id, userRole, userId);
 
     const candidate = interview.candidate;
     if (!candidate) {
@@ -357,21 +350,8 @@ export const interviewService = {
     );
   },
 
-  async regenerateCopilotQuestions(id: string, targetTopic?: string) {
-    const interview = await prisma.interview.findUnique({
-      where: { id },
-      include: {
-        candidate: {
-          include: {
-            job: true,
-          },
-        },
-      },
-    });
-
-    if (!interview) {
-      throw { statusCode: 404, message: 'Interview not found' };
-    }
+  async regenerateCopilotQuestions(id: string, targetTopic?: string, userRole?: string, userId?: string) {
+    const interview = await this.getAuthorizedInterview(id, userRole, userId);
 
     const candidate = interview.candidate;
     if (!candidate) {

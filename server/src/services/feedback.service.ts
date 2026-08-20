@@ -12,31 +12,33 @@ export const feedbackService = {
       throw { statusCode: 403, message: 'You are not authorized to submit feedback for an interview assigned to another interviewer' };
     }
 
-    if (interview.status !== 'COMPLETED') {
-      await prisma.interview.update({
-        where: { id: interviewId },
-        data: { status: 'COMPLETED' }
-      });
-    }
+    return prisma.$transaction(async (tx) => {
+      if (interview.status !== 'COMPLETED') {
+        await tx.interview.update({
+          where: { id: interviewId },
+          data: { status: 'COMPLETED' }
+        });
+      }
 
-    const feedback = await prisma.feedback.create({
-      data: {
-        ...data,
-        comments: data.comments || '',
-        interviewId,
-        createdBy: userId,
-      },
+      const feedback = await tx.feedback.create({
+        data: {
+          ...data,
+          comments: data.comments || '',
+          interviewId,
+          createdBy: userId,
+        },
+      });
+
+      const candidate = await tx.candidate.findUnique({ where: { id: interview.candidateId } });
+      if (candidate && candidate.status !== 'HIRED' && candidate.status !== 'REJECTED') {
+        await tx.candidate.update({
+          where: { id: interview.candidateId },
+          data: { status: 'INTERVIEW' }
+        });
+      }
+
+      return feedback;
     });
-
-    const candidate = await prisma.candidate.findUnique({ where: { id: interview.candidateId } });
-    if (candidate && candidate.status !== 'HIRED' && candidate.status !== 'REJECTED') {
-      await prisma.candidate.update({
-        where: { id: interview.candidateId },
-        data: { status: 'INTERVIEW' }
-      });
-    }
-
-    return feedback;
   },
 
   async updateFeedback(feedbackId: string, data: UpdateFeedbackInput, userId: string, userRole?: string) {

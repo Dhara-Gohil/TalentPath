@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Drawer, Box, Typography, IconButton, Button, Chip, Grid, CircularProgress, Paper } from '@mui/material';
 import { Close as CloseIcon, AutoAwesome as AiIcon, Refresh as RefreshIcon, EventAvailableOutlined as RoundIcon } from '@mui/icons-material';
 import { aiService } from '../api/ai.service';
+import { showToast } from '../utils/toast';
 
 interface Props {
   open: boolean;
@@ -69,9 +70,11 @@ const ViewAiSummaryModal = ({ open, onClose, candidate, onEvaluationGenerated }:
     try {
       const data = await aiService.evaluateInterviews(candidate.id);
       setEvaluation(data);
+      showToast.success('AI Interview Process Summary generated successfully!');
       if (onEvaluationGenerated) onEvaluationGenerated();
     } catch (err: any) {
       setError(err.response?.data?.error || err.message || 'Failed to generate AI interview process summary');
+      showToast.apiError(err, 'Failed to generate AI interview process summary');
     } finally {
       clearInterval(interval);
       setLoading(false);
