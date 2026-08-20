@@ -79,6 +79,24 @@ const CandidateList = () => {
     }
   };
 
+  const handleEvaluationGenerated = async () => {
+    try {
+      const candidatesRes = await apiClient.get('/candidates', { params: { all: 'true' } });
+      const candidateData = Array.isArray(candidatesRes.data)
+        ? candidatesRes.data
+        : (candidatesRes.data.data || candidatesRes.data.candidates || []);
+      setCandidates(candidateData);
+      if (selectedCandidateForAi) {
+        const fresh = candidateData.find((c: any) => c.id === selectedCandidateForAi.id);
+        if (fresh) {
+          setSelectedCandidateForAi(fresh);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   // Helper to determine candidate's highest interview step
   const getCandidateInterviewStep = (candidate: any) => {
     if (!candidate.interviews || candidate.interviews.length === 0) return 'NOT_SCHEDULED';
@@ -579,7 +597,7 @@ const CandidateList = () => {
         open={aiSummaryModalOpen}
         onClose={() => setAiSummaryModalOpen(false)}
         candidate={selectedCandidateForAi}
-        onEvaluationGenerated={fetchCandidatesAndJobs}
+        onEvaluationGenerated={handleEvaluationGenerated}
       />
     </Box>
   );

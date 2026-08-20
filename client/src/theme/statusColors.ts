@@ -13,6 +13,7 @@ export const candidateStatusColor: Record<CandidateStatus, ChipProps['color']> =
 export const interviewStatusColor: Record<InterviewStatus, ChipProps['color']> = {
   SCHEDULED: 'info',
   IN_PROGRESS: 'primary',
+  PAUSED: 'warning',
   COMPLETED: 'success',
   CANCELLED: 'error',
   RESCHEDULED: 'warning',

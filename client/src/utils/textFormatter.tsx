@@ -73,3 +73,21 @@ export const renderFormattedText = (text: string) => {
 
   return <Box>{elements}</Box>;
 };
+
+export const formatRecommendationLabel = (rec?: string): string => {
+  if (!rec) return '';
+  switch (rec.toUpperCase()) {
+    case 'STRONG_YES':
+      return 'Strong Hire';
+    case 'YES':
+      return 'Hire';
+    case 'MAYBE':
+      return 'Need More Evaluation';
+    case 'NO':
+      return 'Do Not Hire';
+    case 'STRONG_NO':
+      return 'Strong Reject';
+    default:
+      return rec;
+  }
+};

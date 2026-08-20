@@ -50,10 +50,32 @@ export const candidateService = {
           status: true,
           jobId: true,
           userId: true,
+          aiEvaluation: true,
           createdAt: true,
           updatedAt: true,
           job: { select: { id: true, title: true, department: true } },
-          interviews: { select: { id: true, type: true, status: true, scheduledAt: true, interviewerId: true } },
+          interviews: {
+            select: {
+              id: true,
+              type: true,
+              status: true,
+              scheduledAt: true,
+              interviewerId: true,
+              feedback: {
+                select: {
+                  id: true,
+                  technicalRating: true,
+                  communicationRating: true,
+                  problemSolvingRating: true,
+                  cultureFitRating: true,
+                  strengths: true,
+                  weaknesses: true,
+                  comments: true,
+                  recommendation: true,
+                }
+              }
+            }
+          },
         },
         orderBy: { createdAt: 'desc' },
         ...(isAll ? {} : { skip: (pageNum - 1) * limitNum, take: limitNum }),

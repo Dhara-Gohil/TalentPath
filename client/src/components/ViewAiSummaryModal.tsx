@@ -24,25 +24,40 @@ const ViewAiSummaryModal = ({ open, onClose, candidate, onEvaluationGenerated }:
   const [error, setError] = useState('');
 
   useEffect(() => {
+    setError('');
+    setEvaluation(null);
+
     if (candidate) {
-      if (candidate.aiEvaluation) {
-        try {
-          setEvaluation(JSON.parse(candidate.aiEvaluation));
-        } catch (e) {
-          setEvaluation(null);
+      const scorecardsCount = candidate.interviews
+        ? candidate.interviews.reduce((acc: number, curr: any) => acc + (Array.isArray(curr.feedback) ? curr.feedback.length : Array.isArray(curr.feedbacks) ? curr.feedbacks.length : 0), 0)
+        : (Array.isArray(candidate.feedbacks) ? candidate.feedbacks.length : Array.isArray(candidate.feedback) ? candidate.feedback.length : 0);
+
+      // ONLY parse and display evaluation if candidate actually has completed scorecards
+      if (scorecardsCount > 0 && candidate.aiEvaluation) {
+        let parsed: any = null;
+        if (typeof candidate.aiEvaluation === 'string') {
+          try {
+            parsed = JSON.parse(candidate.aiEvaluation);
+          } catch (e) {
+            parsed = null;
+          }
+        } else if (typeof candidate.aiEvaluation === 'object') {
+          parsed = candidate.aiEvaluation;
         }
-      } else {
-        setEvaluation(null);
+
+        if (parsed && (parsed.summary || parsed.roundAnalysis)) {
+          setEvaluation(parsed);
+        }
       }
     }
-  }, [candidate, open]);
+  }, [candidate?.id, candidate?.aiEvaluation, candidate?.interviews, open]);
 
   const completedScorecardsCount = candidate?.interviews
-    ? candidate.interviews.reduce((acc: number, curr: any) => acc + (curr.feedbacks?.length || 0), 0)
-    : (candidate?.feedbacks?.length || 0);
+    ? candidate.interviews.reduce((acc: number, curr: any) => acc + (Array.isArray(curr.feedback) ? curr.feedback.length : Array.isArray(curr.feedbacks) ? curr.feedbacks.length : 0), 0)
+    : (Array.isArray(candidate?.feedbacks) ? candidate.feedbacks.length : Array.isArray(candidate?.feedback) ? candidate.feedback.length : 0);
 
   const handleGenerateAI = async () => {
-    if (!candidate) return;
+    if (!candidate || completedScorecardsCount === 0) return;
     setLoading(true);
     setError('');
     setLoadingStepIndex(0);
@@ -96,7 +111,7 @@ const ViewAiSummaryModal = ({ open, onClose, candidate, onEvaluationGenerated }:
             </Typography>
             <Typography variant="caption" sx={{ color: '#626975', fontSize: '0.72rem' }}>
               {completedScorecardsCount === 0
-                ? 'Initial Candidate Qualification Assessment (Pre-Interview)'
+                ? 'Scorecards Required for AI Summary'
                 : completedScorecardsCount < 4
                 ? `Synthesized from ${completedScorecardsCount} completed interview scorecard(s)`
                 : 'Synthesized from scorecards across all 4 interview steps'}
@@ -125,7 +140,7 @@ const ViewAiSummaryModal = ({ open, onClose, candidate, onEvaluationGenerated }:
             variant="outlined"
             startIcon={loading ? <CircularProgress size={12} sx={{ color: '#818cf8' }} /> : <RefreshIcon sx={{ fontSize: 14 }} />}
             onClick={handleGenerateAI}
-            disabled={loading}
+            disabled={loading || completedScorecardsCount === 0}
             sx={{ borderRadius: '6px', fontSize: '0.72rem', color: '#818cf8', borderColor: 'rgba(129, 140, 248, 0.3)' }}
           >
             {loading ? 'Synthesizing...' : (evaluation ? 'Regenerate Summary' : 'Generate AI Summary')}
@@ -151,21 +166,30 @@ const ViewAiSummaryModal = ({ open, onClose, candidate, onEvaluationGenerated }:
           </Box>
         )}
 
-        {/* Empty State */}
+        {/* Empty State / 0 Scorecards */}
         {!evaluation && !loading && (
-          <Box textAlign="center" py={6}>
-            <AiIcon sx={{ fontSize: 36, color: '#626975', mb: 1.5 }} />
-            <Typography variant="body2" color="#969DAA" mb={1.5}>
-              No AI evaluation summary generated yet for {candidate.name}.
+          <Box textAlign="center" py={5}>
+            <AiIcon sx={{ fontSize: 36, color: completedScorecardsCount === 0 ? '#f59e0b' : '#626975', mb: 1.5 }} />
+            <Typography variant="body2" color="#969DAA" mb={1}>
+              {completedScorecardsCount === 0
+                ? `No interview scorecards submitted yet for ${candidate.name}.`
+                : `No AI evaluation summary generated yet for ${candidate.name}.`}
             </Typography>
-            <Button
-              variant="contained"
-              startIcon={<AiIcon sx={{ fontSize: 14 }} />}
-              onClick={handleGenerateAI}
-              sx={{ backgroundColor: '#6366f1', borderRadius: '6px', fontSize: '0.78rem' }}
-            >
-              Generate AI Summary
-            </Button>
+            <Typography variant="caption" sx={{ color: '#626975', display: 'block', mb: 2, maxWidth: 400, mx: 'auto' }}>
+              {completedScorecardsCount === 0
+                ? 'An AI Interview Summary can only be synthesized after at least one interview scorecard is submitted by an interviewer.'
+                : 'Click below to synthesize all submitted interview scorecards into an executive process summary.'}
+            </Typography>
+            {completedScorecardsCount > 0 && (
+              <Button
+                variant="contained"
+                startIcon={<AiIcon sx={{ fontSize: 14 }} />}
+                onClick={handleGenerateAI}
+                sx={{ backgroundColor: '#6366f1', borderRadius: '6px', fontSize: '0.78rem' }}
+              >
+                Generate AI Summary
+              </Button>
+            )}
           </Box>
         )}
 

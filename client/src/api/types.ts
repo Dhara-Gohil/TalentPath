@@ -3,7 +3,7 @@ export type JobStatus = 'DRAFT' | 'OPEN' | 'CLOSED';
 export type EmploymentType = 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERNSHIP';
 export type CandidateStatus = 'APPLIED' | 'SCREENING' | 'INTERVIEW' | 'SHORTLISTED' | 'REJECTED' | 'HIRED';
 export type InterviewType = 'TECHNICAL' | 'HR' | 'MANAGERIAL' | 'CULTURAL';
-export type InterviewStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'RESCHEDULED';
+export type InterviewStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'PAUSED' | 'COMPLETED' | 'CANCELLED' | 'RESCHEDULED';
 export type Recommendation = 'STRONG_YES' | 'YES' | 'MAYBE' | 'NO' | 'STRONG_NO';
 
 export interface CandidateProfile {
@@ -116,6 +116,7 @@ export interface Interview {
   meetingLink?: string | null;
   notes?: string | null;
   transcript?: string | null;
+  startedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   candidate?: {

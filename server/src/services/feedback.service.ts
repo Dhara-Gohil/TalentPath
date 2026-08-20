@@ -13,7 +13,10 @@ export const feedbackService = {
     }
 
     if (interview.status !== 'COMPLETED') {
-      throw { statusCode: 400, message: 'Feedback can only be submitted for completed interviews' };
+      await prisma.interview.update({
+        where: { id: interviewId },
+        data: { status: 'COMPLETED' }
+      });
     }
 
     const feedback = await prisma.feedback.create({

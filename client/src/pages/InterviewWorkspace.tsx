@@ -21,12 +21,14 @@ import {
   LightbulbOutlined as IdeaIcon,
   FormatQuote as QuoteIcon,
   DeleteOutline as DeleteIcon,
-  ContentPaste as PasteIcon
+  ContentPaste as PasteIcon,
+  Pause as PauseIcon,
+  PlayArrow as PlayArrowIcon
 } from '@mui/icons-material';
 import { interviewService } from '../api/interview.service';
 import apiClient from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
-import type { Interview, CopilotAnalysis, CopilotFeedbackDraft, Recommendation } from '../api/types';
+import type { Interview, CopilotAnalysis, CopilotFeedbackDraft, Recommendation, InterviewStatus } from '../api/types';
 import { VoiceWaveVisualizer } from '../components/VoiceWaveVisualizer';
 import { showToast } from '../utils/toast';
 
@@ -37,31 +39,6 @@ interface TranscriptLine {
   timestamp: string;
   isTechnical?: boolean;
 }
-
-const PRESET_SCRIPTS: Record<string, Array<{ speaker: 'Interviewer' | 'Candidate'; text: string }>> = {
-  system_design: [
-    { speaker: 'Interviewer', text: 'Welcome! Let us dive into System Design. How would you design a high-throughput real-time notification engine for millions of users?' },
-    { speaker: 'Candidate', text: 'I would decouple API ingestion from delivery using Apache Kafka as an event stream, backed by Redis for rate limiting and online user session routing.' },
-    { speaker: 'Interviewer', text: 'Great. How do you handle push notification retries and database bottlenecks during traffic spikes?' },
-    { speaker: 'Candidate', text: 'We use exponential backoff with dead-letter queues (DLQ) in RabbitMQ/Kafka, and write status updates asynchronously into PostgreSQL using connection pooling and batch inserts.' },
-    { speaker: 'Interviewer', text: 'Excellent. What about multi-region failover and database read scaling?' },
-    { speaker: 'Candidate', text: 'We deploy primary-replica PostgreSQL clusters with read-replicas distributed globally, cached via Redis Cluster to maintain under 50ms read latency.' }
-  ],
-  frontend_react: [
-    { speaker: 'Interviewer', text: 'Thanks for joining. Can you explain your approach to state management and performance optimization in complex React applications?' },
-    { speaker: 'Candidate', text: 'I structure state locally first, elevate to Context or Redux Toolkit only for global state, and eliminate re-renders using React.memo, useMemo, and useCallback hooks.' },
-    { speaker: 'Interviewer', text: 'How do you handle micro-frontend architecture or code-splitting for large enterprise applications?' },
-    { speaker: 'Candidate', text: 'We implement route-based dynamic imports via React.lazy and Suspense, coupled with Webpack Module Federation for shared component libraries.' },
-    { speaker: 'Interviewer', text: 'How do you monitor web vitals and frontend bundle size?' },
-    { speaker: 'Candidate', text: 'We integrate Lighthouse CI into our build pipeline to enforce LCP under 2.5s and use source-map-explorer to tree-shake third-party dependencies.' }
-  ],
-  leadership_cultural: [
-    { speaker: 'Interviewer', text: 'Can you share an experience where you had a major architectural disagreement with a senior teammate?' },
-    { speaker: 'Candidate', text: 'Yes, our tech lead wanted to rewrite our monolith in Rust, while I advocated for modularizing Express.js services. I built a quick benchmark prototype to compare execution speeds and developer velocity.' },
-    { speaker: 'Interviewer', text: 'How did the team resolve the disagreement?' },
-    { speaker: 'Candidate', text: 'We agreed that developer velocity and team domain expertise outweighed raw microsecond gains. We modularized Express services and saved 3 months of migration risk.' }
-  ]
-};
 
 const HR_QUESTION_BANK = [
   {
@@ -155,6 +132,8 @@ const InterviewWorkspace = () => {
   const recognitionRef = useRef<any>(null);
   const [pasteModalOpen, setPasteModalOpen] = useState(false);
   const [rawPasteText, setRawPasteText] = useState('');
+  // Confirmation modal state for clearing transcript
+  const [clearConfirmModalOpen, setClearConfirmModalOpen] = useState(false);
 
   // AI Copilot State
   const [copilotAnalysis, setCopilotAnalysis] = useState<CopilotAnalysis | null>(null);
@@ -182,9 +161,6 @@ const InterviewWorkspace = () => {
   const [comments, setComments] = useState('');
   const [recommendation, setRecommendation] = useState<Recommendation>('YES');
 
-  // Simulation script state
-  const [selectedScriptKey, setSelectedScriptKey] = useState<string>('');
-
   const isCandidatePresent = Boolean(
     isCandidateUser ||
     (interview?.transcript && (
@@ -194,61 +170,76 @@ const InterviewWorkspace = () => {
     transcriptLines.some(l => l.speaker === 'Candidate')
   );
 
-  const getSessionStartTimeMs = (scheduledAt?: string | Date | null): number | null => {
-    if (scheduledAt) {
-      const ms = new Date(scheduledAt).getTime();
-      if (!isNaN(ms) && ms > 0) return ms;
-    }
-    if (id) {
-      const local = localStorage.getItem(`session_start_ms_${id}`);
-      if (local) {
-        const parsed = parseInt(local, 10);
-        if (!isNaN(parsed) && parsed > 0) return parsed;
-      }
-    }
-    return null;
-  };
+  // Candidate join notification state for interviewer
+  const [hasNotifiedCandidateJoin, setHasNotifiedCandidateJoin] = useState(false);
+  const [lastStatusSeen, setLastStatusSeen] = useState<string | null>(null);
 
-  // Track candidate session start time in localStorage without polluting database transcript
+  // Activate timer when backend interview.startedAt exists and session is IN_PROGRESS (freezes when PAUSED)
   useEffect(() => {
-    if (isCandidateUser && id && interview) {
-      const localKey = `session_start_ms_${id}`;
-      if (!localStorage.getItem(localKey)) {
-        localStorage.setItem(localKey, Date.now().toString());
-      }
-    }
-  }, [isCandidateUser, id, interview?.id]);
-
-  // Activate timer ONLY after candidate has joined and session is IN_PROGRESS
-  useEffect(() => {
-    if (isCandidatePresent && interview?.status === 'IN_PROGRESS') {
+    if (interview?.startedAt && interview?.status === 'IN_PROGRESS') {
       setIsTimerActive(true);
     } else {
       setIsTimerActive(false);
     }
-  }, [isCandidatePresent, interview?.status]);
+  }, [interview?.startedAt, interview?.status]);
 
-  // Isolated Session Clock Component (Prevents parent InterviewWorkspace re-renders every 1s)
-  const SessionClock = ({ interviewId, isTimerActive, scheduledAt }: { interviewId: string; isTimerActive: boolean; scheduledAt?: string | Date | null }) => {
+  // Trigger Toast Notification on Interviewer & Candidate side when status changes
+  useEffect(() => {
+    if (interview?.status && interview.status !== lastStatusSeen) {
+      if (lastStatusSeen !== null) {
+        if (interview.status === 'PAUSED') {
+          showToast.warning('The interview session has been PAUSED by the interviewer.');
+        } else if (lastStatusSeen === 'PAUSED' && interview.status === 'IN_PROGRESS') {
+          showToast.success('The interview session has RESUMED.');
+        }
+      }
+      setLastStatusSeen(interview.status);
+    }
+  }, [interview?.status, lastStatusSeen]);
+
+  const handleTogglePauseSession = async () => {
+    if (!id || !interview) return;
+    const newStatus: InterviewStatus = interview.status === 'PAUSED' ? 'IN_PROGRESS' : 'PAUSED';
+    try {
+      await interviewService.updateInterviewStatus(id, newStatus);
+      setInterview((prev) => prev ? { ...prev, status: newStatus } : prev);
+      showToast.info(newStatus === 'PAUSED' ? 'Interview session PAUSED.' : 'Interview session RESUMED.');
+    } catch (err: any) {
+      showToast.error(err.response?.data?.error || 'Failed to update session pause state');
+    }
+  };
+
+  // Trigger Toast Notification on Interviewer side when Candidate joins
+  useEffect(() => {
+    if (!isCandidateUser && (isCandidatePresent || Boolean(interview?.startedAt)) && !hasNotifiedCandidateJoin) {
+      setHasNotifiedCandidateJoin(true);
+      showToast.success(`Candidate (${interview?.candidate?.name || 'Candidate'}) has joined the live interview session!`);
+    }
+  }, [isCandidateUser, isCandidatePresent, interview?.startedAt, hasNotifiedCandidateJoin, interview?.candidate?.name]);
+
+  // Isolated Session Clock Component (Synced across Interviewer & Candidate from persistent database startedAt)
+  const SessionClock = ({ isTimerActive, startedAt }: { isTimerActive: boolean; startedAt?: string | Date | null }) => {
     const [seconds, setSeconds] = useState(0);
 
     useEffect(() => {
-      if (!isTimerActive) return;
-      const startMs = getSessionStartTimeMs(scheduledAt);
+      if (!isTimerActive || !startedAt) {
+        setSeconds(0);
+        return;
+      }
+
+      const startMs = new Date(startedAt).getTime();
 
       const updateTimer = () => {
-        if (startMs) {
+        if (!isNaN(startMs) && startMs > 0) {
           const elapsedSecs = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
           setSeconds(elapsedSecs);
-        } else {
-          setSeconds((prev) => prev + 1);
         }
       };
 
       updateTimer();
       const interval = setInterval(updateTimer, 1000);
       return () => clearInterval(interval);
-    }, [isTimerActive, scheduledAt, interviewId]);
+    }, [isTimerActive, startedAt]);
 
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -348,6 +339,14 @@ const InterviewWorkspace = () => {
             navigate('/candidate-portal/applications');
           }, 2200);
           return;
+        }
+
+        if (latest.startedAt || latest.status) {
+          setInterview((prev) => prev ? {
+            ...prev,
+            status: latest.status || prev.status,
+            startedAt: latest.startedAt !== undefined ? latest.startedAt : prev.startedAt,
+          } : prev);
         }
 
         if (latest.transcript !== undefined) {
@@ -470,32 +469,6 @@ const InterviewWorkspace = () => {
     }
   };
 
-  // Preset script loader simulator (Only for Interviewer/Recruiter/Admin)
-  const handleRunPresetScript = async (key: string) => {
-    if (!key || !PRESET_SCRIPTS[key] || isCandidateUser) return;
-    setSelectedScriptKey(key);
-    const script = PRESET_SCRIPTS[key];
-    let currentLines = [...transcriptLines];
-
-    for (let i = 0; i < script.length; i++) {
-      const item = script[i];
-      const newLine: TranscriptLine = {
-        id: `preset-${Date.now()}-${i}`,
-        speaker: item.speaker,
-        text: item.text,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-      currentLines = [...currentLines, newLine];
-      setTranscriptLines(currentLines);
-      await new Promise((resolve) => setTimeout(resolve, 800));
-    }
-
-    const updatedText = currentLines.map((l) => `${l.speaker}: ${l.text}`).join('\n');
-    interviewService.saveTranscript(id!, updatedText).catch(() => { });
-    runCopilotAnalysis(updatedText);
-    setSelectedScriptKey('');
-  };
-
   // Web Speech API Voice Recognition
   const toggleListening = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -560,11 +533,14 @@ const InterviewWorkspace = () => {
 
   // Clear Transcript
   const handleClearTranscript = () => {
-    if (window.confirm('Are you sure you want to clear the interview transcript?')) {
-      setTranscriptLines([]);
-      setCopilotAnalysis(null);
-      interviewService.saveTranscript(id!, '').catch(() => { });
-    }
+    setClearConfirmModalOpen(true);
+  };
+
+  const confirmClearTranscript = () => {
+    setTranscriptLines([]);
+    setCopilotAnalysis(null);
+    interviewService.saveTranscript(id!, '').catch(() => { });
+    setClearConfirmModalOpen(false);
   };
 
   // Trigger End Interview & Feedback Draft Modal (Interviewer Only)
@@ -578,10 +554,10 @@ const InterviewWorkspace = () => {
       const draft: CopilotFeedbackDraft = await interviewService.generateCopilotFeedback(id!, fullText);
       setFeedbackDraft(draft);
 
-      setTechnicalRating(draft.technicalRating || 8);
-      setCommunicationRating(draft.communicationRating || 8);
-      setProblemSolvingRating(draft.problemSolvingRating || 8);
-      setCultureFitRating(draft.cultureFitRating || 8);
+      setTechnicalRating(draft.technicalRating && draft.technicalRating > 0 ? draft.technicalRating : 8);
+      setCommunicationRating(draft.communicationRating && draft.communicationRating > 0 ? draft.communicationRating : 8);
+      setProblemSolvingRating(draft.problemSolvingRating && draft.problemSolvingRating > 0 ? draft.problemSolvingRating : 8);
+      setCultureFitRating(draft.cultureFitRating && draft.cultureFitRating > 0 ? draft.cultureFitRating : 8);
       setStrengths(draft.strengths || '');
       setWeaknesses(draft.weaknesses || '');
       setComments(draft.comments || '');
@@ -598,6 +574,7 @@ const InterviewWorkspace = () => {
     if (!id || !interview) return;
     setSubmittingFeedback(true);
     try {
+      await interviewService.updateInterviewStatus(id, 'COMPLETED');
       await apiClient.post(`/interviews/${id}/feedback`, {
         technicalRating,
         communicationRating,
@@ -609,7 +586,6 @@ const InterviewWorkspace = () => {
         recommendation
       });
 
-      await interviewService.updateInterviewStatus(id, 'COMPLETED');
       setFeedbackModalOpen(false);
       navigate(isCandidateUser ? '/candidate-portal/applications' : `/candidates/${interview.candidateId}`);
     } catch (err: any) {
@@ -751,60 +727,104 @@ const InterviewWorkspace = () => {
           </Box>
         </Box>
 
-        {/* Live Indicator + Timer + Action Button */}
-        <Box display="flex" alignItems="center" gap={2}>
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              px: 1.8,
-              py: 0.6,
-              borderRadius: '20px',
-              bgcolor: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid rgba(239, 68, 68, 0.3)'
-            }}
-          >
+          {/* Live / Paused Indicator + Timer + Action Buttons */}
+          <Box display="flex" alignItems="center" gap={2}>
             <Box
               sx={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                bgcolor: '#ef4444',
-                boxShadow: '0 0 10px #ef4444',
-                animation: 'pulse 1.5s infinite'
-              }}
-            />
-            <Typography variant="caption" fontWeight={800} sx={{ color: '#ef4444', letterSpacing: '0.08em' }}>
-              LIVE
-            </Typography>
-            <SessionClock interviewId={id!} isTimerActive={isTimerActive} scheduledAt={interview?.scheduledAt} />
-          </Box>
-
-          {!isCandidateUser && (
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<AiIcon sx={{ fontSize: 16 }} />}
-              onClick={handleOpenEndInterviewModal}
-              sx={{
-                background: 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
-                color: '#ffffff',
-                fontWeight: 700,
-                fontSize: '0.8rem',
-                borderRadius: '8px',
-                px: 2,
-                height: 36,
-                boxShadow: '0 4px 14px rgba(99,102,241,0.3)',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #4f46e5 0%, #0891b2 100%)',
-                }
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                px: 1.8,
+                py: 0.6,
+                borderRadius: '20px',
+                bgcolor: interview.status === 'PAUSED' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(239, 68, 68, 0.1)',
+                border: interview.status === 'PAUSED' ? '1px solid rgba(245, 158, 11, 0.35)' : '1px solid rgba(239, 68, 68, 0.3)'
               }}
             >
-              End Interview & Generate Feedback
-            </Button>
-          )}
-        </Box>
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  bgcolor: interview.status === 'PAUSED' ? '#f59e0b' : '#ef4444',
+                  boxShadow: interview.status === 'PAUSED' ? '0 0 10px #f59e0b' : '0 0 10px #ef4444',
+                  animation: interview.status === 'PAUSED' ? 'none' : 'pulse 1.5s infinite'
+                }}
+              />
+              <Typography variant="caption" fontWeight={800} sx={{ color: interview.status === 'PAUSED' ? '#f59e0b' : '#ef4444', letterSpacing: '0.08em' }}>
+                {interview.status === 'PAUSED' ? 'PAUSED' : 'LIVE'}
+              </Typography>
+              <SessionClock isTimerActive={isTimerActive} startedAt={interview?.startedAt} />
+            </Box>
+
+            {/* Candidate Connection Status Acknowledgement Chip */}
+            <Chip
+              icon={isCandidatePresent || Boolean(interview?.startedAt) ? <CheckIcon sx={{ fontSize: '14px !important', color: '#10b981' }} /> : <PendingIcon sx={{ fontSize: '14px !important', color: '#f59e0b' }} />}
+              label={
+                isCandidatePresent || Boolean(interview?.startedAt)
+                  ? `Candidate Connected (${candidate?.name || 'Candidate'})`
+                  : 'Waiting for Candidate to join...'
+              }
+              size="small"
+              sx={{
+                height: 28,
+                fontSize: '0.73rem',
+                fontWeight: 700,
+                bgcolor: isCandidatePresent || Boolean(interview?.startedAt) ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                color: isCandidatePresent || Boolean(interview?.startedAt) ? '#10b981' : '#f59e0b',
+                border: isCandidatePresent || Boolean(interview?.startedAt) ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(245, 158, 11, 0.3)',
+                px: 0.5
+              }}
+            />
+
+            {!isCandidateUser && (
+              <>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={interview.status === 'PAUSED' ? <PlayArrowIcon sx={{ fontSize: 16 }} /> : <PauseIcon sx={{ fontSize: 16 }} />}
+                  onClick={handleTogglePauseSession}
+                  sx={{
+                    borderColor: interview.status === 'PAUSED' ? 'rgba(16, 185, 129, 0.4)' : 'rgba(245, 158, 11, 0.4)',
+                    color: interview.status === 'PAUSED' ? '#10b981' : '#f59e0b',
+                    bgcolor: interview.status === 'PAUSED' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                    fontWeight: 700,
+                    fontSize: '0.8rem',
+                    borderRadius: '8px',
+                    px: 1.8,
+                    height: 36,
+                    '&:hover': {
+                      bgcolor: interview.status === 'PAUSED' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+                    }
+                  }}
+                >
+                  {interview.status === 'PAUSED' ? 'Resume Session' : 'Pause Session'}
+                </Button>
+
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<AiIcon sx={{ fontSize: 16 }} />}
+                  onClick={handleOpenEndInterviewModal}
+                  sx={{
+                    background: 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    fontSize: '0.8rem',
+                    borderRadius: '8px',
+                    px: 2,
+                    height: 36,
+                    boxShadow: '0 4px 14px rgba(99,102,241,0.3)',
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #4f46e5 0%, #0891b2 100%)',
+                    }
+                  }}
+                >
+                  End Interview & Generate Feedback
+                </Button>
+              </>
+            )}
+          </Box>
       </Paper>
 
       {/* 2. SPLIT OR FULL INTERVIEW WORKSPACE LAYOUT */}
@@ -813,7 +833,7 @@ const InterviewWorkspace = () => {
         {/* LEFT SIDE: INTERVIEW TRANSCRIPT & CONVERSATION (Full width for Candidate, split width for Staff) */}
         <Card
           sx={{
-            flex: isCandidateUser ? 1 : 1.1,
+            flex: isCandidateUser ? 1 : 1.6,
             display: 'flex',
             flexDirection: 'column',
             backgroundColor: '#101318',
@@ -839,37 +859,6 @@ const InterviewWorkspace = () => {
 
             {!isCandidateUser && (
               <Box display="flex" alignItems="center" gap={1}>
-                {/* Preset Dialogue Script Selector for Interviewer */}
-                <TextField
-                  select
-                  size="small"
-                  value={selectedScriptKey}
-                  onChange={(e) => handleRunPresetScript(e.target.value)}
-                  SelectProps={{ displayEmpty: true }}
-                  sx={{
-                    width: 170,
-                    '& .MuiOutlinedInput-root': {
-                      height: 28,
-                      fontSize: '0.72rem',
-                      bgcolor: '#0B0D10',
-                      color: '#818cf8'
-                    }
-                  }}
-                >
-                  <MenuItem value="" disabled sx={{ fontSize: '0.75rem' }}>
-                    Simulate Dialogue...
-                  </MenuItem>
-                  <MenuItem value="system_design" sx={{ fontSize: '0.75rem' }}>
-                    System Design Round
-                  </MenuItem>
-                  <MenuItem value="frontend_react" sx={{ fontSize: '0.75rem' }}>
-                    React & Frontend Deep Dive
-                  </MenuItem>
-                  <MenuItem value="leadership_cultural" sx={{ fontSize: '0.75rem' }}>
-                    Leadership & Behavioral
-                  </MenuItem>
-                </TextField>
-
                 <Tooltip title="Paste Full Transcript Text">
                   <IconButton size="small" onClick={() => setPasteModalOpen(true)} sx={{ color: '#969DAA' }}>
                     <PasteIcon sx={{ fontSize: 16 }} />
@@ -902,6 +891,47 @@ const InterviewWorkspace = () => {
               gap: 1.5
             }}
           >
+            {/* Session Paused Acknowledgement Banner */}
+            {interview?.status === 'PAUSED' && (
+              <Alert
+                icon={<PauseIcon sx={{ color: '#f59e0b' }} />}
+                severity="warning"
+                sx={{
+                  bgcolor: 'rgba(245, 158, 11, 0.12)',
+                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                  color: '#f59e0b',
+                  fontSize: '0.78rem',
+                  py: 0.5,
+                  px: 2,
+                  borderRadius: '8px',
+                  alignItems: 'center',
+                  mb: 0.5
+                }}
+              >
+                <strong>INTERVIEW PAUSED:</strong> This session has been paused by the interviewer. Input is disabled until the interviewer resumes the session.
+              </Alert>
+            )}
+
+            {/* Candidate Join Acknowledgement Banner */}
+            {(isCandidatePresent || Boolean(interview?.startedAt)) && (
+              <Alert
+                icon={<CheckIcon sx={{ color: '#10b981' }} />}
+                severity="success"
+                sx={{
+                  bgcolor: 'rgba(16, 185, 129, 0.08)',
+                  border: '1px solid rgba(16, 185, 129, 0.25)',
+                  color: '#10b981',
+                  fontSize: '0.75rem',
+                  py: 0.2,
+                  px: 1.5,
+                  borderRadius: '6px',
+                  alignItems: 'center',
+                  mb: 0.5
+                }}
+              >
+                <strong>ACKNOWLEDGEMENT:</strong> Candidate <strong>{candidate?.name || 'Candidate'}</strong> joined the live interview session.
+              </Alert>
+            )}
             {transcriptLines.length === 0 ? (
               <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" height="100%" color="#626975">
                 <QuoteIcon sx={{ fontSize: 40, opacity: 0.3, mb: 1 }} />
@@ -1037,23 +1067,26 @@ const InterviewWorkspace = () => {
             <TextField
               fullWidth
               size="small"
+              disabled={interview?.status === 'PAUSED'}
               placeholder={
-                isListening
-                  ? "Listening... Speak into microphone"
+                interview?.status === 'PAUSED'
+                  ? 'Interview session is PAUSED by the interviewer. Input disabled...'
+                  : isListening
+                  ? 'Listening... Speak into microphone'
                   : isCandidateUser
-                  ? "Type response as Candidate... (Press Enter to send)"
-                  : "Type message for Interviewer... (Press Enter to send)"
+                  ? 'Type response as Candidate... (Press Enter to send)'
+                  : 'Type message for Interviewer... (Press Enter to send)'
               }
               value={inputDialogue}
               onChange={(e) => setInputDialogue(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') handleAddDialogue();
+                if (e.key === 'Enter' && interview?.status !== 'PAUSED') handleAddDialogue();
               }}
               sx={{
                 '& .MuiOutlinedInput-root': {
                   height: 38,
                   fontSize: '0.82rem',
-                  bgcolor: isListening ? 'rgba(59, 130, 246, 0.05)' : '#0B0D10',
+                  bgcolor: interview?.status === 'PAUSED' ? 'rgba(245, 158, 11, 0.05)' : isListening ? 'rgba(59, 130, 246, 0.05)' : '#0B0D10',
                   borderColor: isListening ? '#3b82f6' : undefined,
                   boxShadow: isListening ? '0 0 10px rgba(59, 130, 246, 0.2)' : undefined,
                   transition: 'all 0.2s ease-in-out'
@@ -1061,7 +1094,7 @@ const InterviewWorkspace = () => {
               }}
             />
 
-            {!isCandidateUser && (
+            {!isCandidateUser && interview?.type === 'TECHNICAL' && (
               <Tooltip title={isTechInputToggle ? "Technical Question Mode Active (Click to disable)" : "Toggle Technical Question Mode (Highlights message in cyan Q&A)"}>
                 <Chip
                   icon={<AiIcon sx={{ fontSize: '14px !important', color: isTechInputToggle ? '#06b6d4' : '#626975' }} />}
@@ -1088,6 +1121,7 @@ const InterviewWorkspace = () => {
             <Tooltip title={isListening ? 'Stop Mic Recording' : 'Start Speech Input (Mic)'}>
               <IconButton
                 onClick={toggleListening}
+                disabled={interview?.status === 'PAUSED'}
                 sx={{
                   bgcolor: isListening ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255,255,255,0.05)',
                   color: isListening ? '#60a5fa' : '#969DAA',
@@ -1111,7 +1145,7 @@ const InterviewWorkspace = () => {
               variant="contained"
               size="small"
               onClick={handleAddDialogue}
-              disabled={!inputDialogue.trim()}
+              disabled={!inputDialogue.trim() || interview?.status === 'PAUSED'}
               sx={{
                 height: 38,
                 px: 2,
@@ -1543,6 +1577,26 @@ const InterviewWorkspace = () => {
         </DialogActions>
       </Dialog>
 
+      {/* CLEAR TRANSCRIPT CONFIRMATION MODAL */}
+      <Dialog open={clearConfirmModalOpen} onClose={() => setClearConfirmModalOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ bgcolor: '#0B0D10', color: '#F5F7FA', fontWeight: 700 }}>
+          Clear Interview Transcript?
+        </DialogTitle>
+        <DialogContent sx={{ bgcolor: '#0B0D10', pt: 1 }}>
+          <Typography variant="body2" sx={{ color: '#969DAA', fontSize: '0.85rem' }}>
+            Are you sure you want to permanently clear the interview transcript and reset live dialogue stream? This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ bgcolor: '#0B0D10', p: 2 }}>
+          <Button onClick={() => setClearConfirmModalOpen(false)} sx={{ color: '#969DAA' }}>
+            Cancel
+          </Button>
+          <Button variant="contained" color="error" onClick={confirmClearTranscript}>
+            Clear Transcript
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* END INTERVIEW & FEEDBACK DRAFT MODAL */}
       <Dialog open={feedbackModalOpen} onClose={() => setFeedbackModalOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ bgcolor: '#0B0D10', color: '#F5F7FA', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1648,11 +1702,11 @@ const InterviewWorkspace = () => {
                   onChange={(e) => setRecommendation(e.target.value as any)}
                   sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#101318', fontSize: '0.8rem' } }}
                 >
-                  <MenuItem value="STRONG_YES">STRONG YES - Clear Hire</MenuItem>
-                  <MenuItem value="YES">YES - Recommend Hire</MenuItem>
-                  <MenuItem value="MAYBE">MAYBE - Needs Further Evaluation</MenuItem>
-                  <MenuItem value="NO">NO - Do Not Pursue</MenuItem>
-                  <MenuItem value="STRONG_NO">STRONG NO - Clear Rejection</MenuItem>
+                  <MenuItem value="STRONG_YES">Strong Hire</MenuItem>
+                  <MenuItem value="YES">Recommend Hire</MenuItem>
+                  <MenuItem value="MAYBE">Need More Evaluation</MenuItem>
+                  <MenuItem value="NO">Do Not Hire</MenuItem>
+                  <MenuItem value="STRONG_NO">Strong Reject</MenuItem>
                 </TextField>
               </Box>
 

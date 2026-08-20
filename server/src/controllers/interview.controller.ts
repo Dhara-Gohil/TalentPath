@@ -70,7 +70,7 @@ export const getInterviews = async (req: AuthRequest, res: Response) => {
 export const getInterviewById = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const interview = await interviewService.getInterviewById(id);
+    const interview = await interviewService.getInterviewById(id, req.user?.role);
     res.json(interview);
   } catch (error: any) {
     if (error.statusCode) {

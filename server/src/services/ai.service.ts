@@ -2,6 +2,16 @@ import OpenAI from 'openai';
 
 const AI_REQUEST_TIMEOUT_MS = Number(process.env.AI_REQUEST_TIMEOUT_MS) || 45000;
 
+const DEFAULT_AI_MODEL = process.env.OPENAI_MODEL || 'google/gemma-4-26b-a4b-it:free';
+
+const cleanJsonContent = (content: string) => {
+  return content
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+};
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
   baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
@@ -157,7 +167,7 @@ export const aiService = {
 
     try {
       const response = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: DEFAULT_AI_MODEL,
         messages: [
           { role: 'system', content: 'You are a technical recruiter evaluating candidate resumes. Respond ONLY with valid JSON.' },
           { role: 'user', content: prompt },
@@ -165,7 +175,8 @@ export const aiService = {
         response_format: { type: 'json_object' },
       });
 
-      const content = response.choices[0]?.message?.content;
+      const rawContent = response.choices[0]?.message?.content || '';
+      const content = cleanJsonContent(rawContent);
       if (!content) {
         throw new Error('Invalid response payload from OpenAI');
       }
@@ -289,7 +300,7 @@ export const aiService = {
 
     try {
       const response = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: DEFAULT_AI_MODEL,
         messages: [
           { role: 'system', content: 'You are an executive talent strategist synthesizing interview scorecards. Respond ONLY with valid JSON.' },
           { role: 'user', content: prompt },
@@ -297,7 +308,8 @@ export const aiService = {
         response_format: { type: 'json_object' },
       });
 
-      const content = response.choices[0]?.message?.content;
+      const rawContent = response.choices[0]?.message?.content || '';
+      const content = cleanJsonContent(rawContent);
       if (!content) {
         throw new Error('Invalid JSON content from OpenAI');
       }
@@ -381,7 +393,7 @@ export const aiService = {
 
     try {
       const response = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: DEFAULT_AI_MODEL,
         messages: [
           { role: 'system', content: 'You are an executive talent strategist. Respond ONLY with valid JSON.' },
           { role: 'user', content: prompt },
@@ -389,7 +401,8 @@ export const aiService = {
         response_format: { type: 'json_object' },
       });
 
-      const content = response.choices[0]?.message?.content;
+      const rawContent = response.choices[0]?.message?.content || '';
+      const content = cleanJsonContent(rawContent);
       if (!content) {
         throw new Error('Invalid response payload from AI service');
       }
@@ -464,7 +477,7 @@ export const aiService = {
 
     try {
       const response = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: DEFAULT_AI_MODEL,
         messages: [
           { role: 'system', content: 'You are a career matching AI. Respond ONLY with valid JSON.' },
           { role: 'user', content: prompt },
@@ -472,7 +485,8 @@ export const aiService = {
         response_format: { type: 'json_object' },
       });
 
-      const content = response.choices[0]?.message?.content;
+      const rawContent = response.choices[0]?.message?.content || '';
+      const content = cleanJsonContent(rawContent);
       if (!content) {
         throw new Error('Invalid response payload from AI matching service');
       }
@@ -564,7 +578,7 @@ export const aiService = {
 
     try {
       const response = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: DEFAULT_AI_MODEL,
         max_tokens: 1000,
         messages: [
           { role: 'system', content: 'You are an expert Technical AI Copilot cross-referencing JD and candidate resume. Respond ONLY with valid JSON.' },
@@ -573,7 +587,8 @@ export const aiService = {
         response_format: { type: 'json_object' },
       });
 
-      const content = response.choices[0]?.message?.content;
+      const rawContent = response.choices[0]?.message?.content || '';
+      const content = cleanJsonContent(rawContent);
       if (!content) {
         throw new Error('Invalid response payload from AI Copilot service');
       }
@@ -633,7 +648,38 @@ export const aiService = {
     const candSkillsStr = candidate?.skills || 'Engineering';
     const candExp = candidate?.experienceYears || 0;
 
-    // Extract highlighted technical Q&A exchanges tagged with [TECH]
+    const currentRound = (interviewType || 'TECHNICAL').toUpperCase();
+
+    let roundGuidance = '';
+    if (currentRound === 'HR') {
+      roundGuidance = `
+      EVALUATION FOCUS FOR HR ROUND:
+      - Candidate background, career journey motivation, and communication clarity.
+      - Logistics alignment: notice period, location preferences, work arrangements, and compensation expectations.
+      - Work ethic, interpersonal collaboration, and alignment with HR hiring standards.
+      `;
+    } else if (currentRound === 'MANAGERIAL') {
+      roundGuidance = `
+      EVALUATION FOCUS FOR MANAGERIAL ROUND:
+      - End-to-end project ownership, execution track record, and technical leadership capability.
+      - Stakeholder management, cross-functional collaboration, and conflict resolution approach.
+      - Agile sprint planning, priority management under tight deadlines, and team mentorship.
+      `;
+    } else if (currentRound === 'CULTURAL') {
+      roundGuidance = `
+      EVALUATION FOCUS FOR CULTURAL FIT ROUND:
+      - Alignment with core organizational values, adaptability to structural change, and resilience.
+      - Receptiveness to constructive feedback and growth-mindset orientation.
+      - Empathy, team support mindset, and personal accountability for project outcomes.
+      `;
+    } else {
+      roundGuidance = `
+      EVALUATION FOCUS FOR TECHNICAL ROUND:
+      - Candidate's technical depth, system design decisions, problem-solving skills, and coding quality.
+      - Accuracy and depth of technical responses provided during technical Q&A exchanges.
+      `;
+    }
+
     const rawLines = (transcript || '').split('\n').filter(Boolean);
     const techQaExchanges: string[] = [];
     let isCurrentExchangeTech = false;
@@ -649,16 +695,6 @@ export const aiService = {
       }
     }
 
-    const candidateAnswersList = (transcript || '')
-      .split('\n')
-      .filter(l => l.toLowerCase().startsWith('candidate:'))
-      .map(l => l.replace(/^candidate:\s*/i, '').trim())
-      .filter(Boolean);
-
-    const highlightedText = techQaExchanges.length > 0
-      ? techQaExchanges.join('\n')
-      : (transcript || 'No explicit technical dialogue recorded.');
-
     const prompt = `
       You are an executive talent strategist synthesizing a completed live interview transcript into a final interview scorecard & summary.
       
@@ -671,38 +707,39 @@ export const aiService = {
       Skills: ${candSkillsStr}
       Years Experience: ${candExp}
       
-      INTERVIEW ROUND TYPE: ${interviewType || 'TECHNICAL'}
-      
-      HIGHLIGHTED TECHNICAL QUESTION & ANSWER EXCHANGES (PRIMARY SYNTHESIS FOCUS):
-      ${highlightedText}
+      INTERVIEW ROUND TYPE: ${currentRound}
+
+      ${roundGuidance}
       
       FULL LIVE INTERVIEW TRANSCRIPT:
       ${transcript || '(No transcript dialogue recorded)'}
       
-      CRITICAL INSTRUCTION:
-      The "summary", "comments", "technicalRating", "strengths", and "weaknesses" MUST BE STRICTLY AND DIRECTLY SYNTHESIZED FROM THE HIGHLIGHTED TECHNICAL QUESTION & ANSWER EXCHANGES ABOVE ("${highlightedText.slice(0, 1500)}").
-      - Focus on candidate's exact technical responses to asked questions.
-      - DO NOT invent or hallucinate candidate statements that were not exchanged during this interview session.
-      - If the candidate answered technical questions, summarize their exact answers, technical depth, and communication style.
-      - If minimal text was recorded, state clearly what was discussed during the ${interviewType || 'technical'} round.
+      CRITICAL RATING CALIBRATION RULES (1 to 10 scale):
+      - 9 to 10: Exceptional performance; candidate demonstrated mastery, depth, and clarity.
+      - 7 to 8: Strong, competent performance. Candidate answered questions accurately and articulately.
+      - 5 to 6: Average / Satisfactory performance with minor gaps.
+      - 3 to 4: Below expectations with noticeable knowledge gaps.
+      - 1 to 2: Poor / Refusal / Non-substantive answers ("idk", "hehe", pass).
+
+      DO NOT output 1 for ratings unless the candidate gave non-answers or completely failed. For an articulate candidate who answered questions, ratings MUST be between 7 and 9.
       
       Synthesize the interview and generate a structured JSON feedback draft matching EXACTLY this schema:
       {
-        "technicalRating": integer between 1 and 10,
+        "technicalRating": integer between 1 and 10 (10=exceptional, 7-8=strong competent, 1-2=refusal/poor),
         "communicationRating": integer between 1 and 10,
         "problemSolvingRating": integer between 1 and 10,
         "cultureFitRating": integer between 1 and 10,
-        "strengths": "Bullet points detailing verified strengths directly evidenced in candidate's highlighted answers",
-        "weaknesses": "Bullet points detailing specific gaps or areas to explore further based on candidate's highlighted answers",
-        "comments": "Qualitative synthesis strictly based on candidate's highlighted Q&A responses during the session",
+        "strengths": "Bullet points detailing verified strengths directly evidenced in candidate's responses",
+        "weaknesses": "Bullet points detailing specific gaps or areas to explore further based on candidate's responses",
+        "comments": "Qualitative synthesis strictly based on candidate's responses during the session",
         "recommendation": "STRONG_YES or YES or MAYBE or NO or STRONG_NO",
-        "summary": "Executive interview summary strictly derived from candidate's highlighted technical transcript dialogue"
+        "summary": "Executive interview summary strictly derived from candidate's transcript dialogue"
       }
     `;
 
     try {
       const response = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: DEFAULT_AI_MODEL,
         messages: [
           { role: 'system', content: 'You are an executive talent strategist creating interview scorecards. Respond ONLY with valid JSON.' },
           { role: 'user', content: prompt },
@@ -710,29 +747,113 @@ export const aiService = {
         response_format: { type: 'json_object' },
       });
 
-      const content = response.choices[0]?.message?.content;
+      const rawContent = response.choices[0]?.message?.content || '';
+      const content = cleanJsonContent(rawContent);
       if (!content) {
         throw new Error('Invalid response payload from AI feedback draft service');
       }
 
-      return JSON.parse(content) as CopilotFeedbackDraft;
-    } catch (error: any) {
-      console.error('AI Copilot Feedback Draft Fallback triggered:', error?.message || error);
-      
-      const lastAnswers = candidateAnswersList.length > 0 
-        ? `The candidate stated: "${candidateAnswersList.join('; ').slice(0, 220)}".` 
-        : `Candidate completed the ${interviewType || 'technical'} interview session.`;
+      const candidateLines = (transcript || '')
+        .split('\n')
+        .filter(l => l.toLowerCase().startsWith('candidate:'))
+        .map(l => l.replace(/^candidate:\s*/i, '').trim())
+        .filter(Boolean);
+
+      const nonGreetingAnswers = candidateLines.filter(a =>
+        !/^(hello|hi|good afternoon|good morning|good evening|hey|greetings|thanks|thank you|yes|okay|ok)$/i.test(a.trim())
+      );
+
+      const totalSubstantiveLength = nonGreetingAnswers.join(' ').length;
+      const hasSubstantiveCandidateAnswers = totalSubstantiveLength >= 25;
+
+      if (!hasSubstantiveCandidateAnswers) {
+        const sampleCandidateText = candidateLines.length > 0
+          ? `exchanged basic greetings/dialogue ("${candidateLines.join('; ').slice(0, 100)}")`
+          : 'provided no dialogue during the session';
+
+        return {
+          technicalRating: 1,
+          communicationRating: 3,
+          problemSolvingRating: 1,
+          cultureFitRating: 3,
+          strengths: candidateLines.length > 0
+            ? `• Exchanged initial pleasantries ("${candidateLines.join('; ').slice(0, 60)}")`
+            : `• Connected to live interview session`,
+          weaknesses: `• Candidate did NOT answer any technical questions asked during the ${currentRound} round\n• Failed to demonstrate domain knowledge or technical competency for ${jobTitle}`,
+          comments: `The interviewer asked technical questions during the ${currentRound} round, but candidate ${candName} ${sampleCandidateText} and did not answer the questions posed.`,
+          recommendation: 'NO',
+          summary: `During the ${currentRound} round for ${jobTitle}, candidate ${candName} ${sampleCandidateText}, but provided no substantive answers to the interviewer's technical questions. Recommendation is DO NOT HIRE due to unverified competency.`,
+        };
+      }
+
+      const parsed = JSON.parse(content) as CopilotFeedbackDraft;
+      const rec = parsed.recommendation || 'YES';
+
+      const sanitizeRating = (val: any, defaultVal: number): number => {
+        let n = typeof val === 'number' ? val : parseInt(val, 10);
+        if (isNaN(n)) n = defaultVal;
+
+        // If model output binary 0-1 (e.g. 1 out of 1 normalized scale) while recommending YES/STRONG_YES/MAYBE
+        if (n <= 1 && (rec.includes('YES') || rec === 'MAYBE')) {
+          n = rec === 'STRONG_YES' ? 9 : rec === 'YES' ? 8 : 7;
+        }
+
+        return Math.max(1, Math.min(10, Math.round(n)));
+      };
 
       return {
-        technicalRating: candidateAnswersList.length > 0 ? 8 : 7,
-        communicationRating: candidateAnswersList.length > 0 ? 8 : 7,
-        problemSolvingRating: candidateAnswersList.length > 0 ? 8 : 7,
-        cultureFitRating: candidateAnswersList.length > 0 ? 8 : 7,
-        strengths: `• Clear communication and active engagement during ${interviewType || 'technical'} round\n• ${candidateAnswersList.length > 0 ? `Discussed: ${candidateAnswersList[0].slice(0, 80)}` : `Demonstrated background alignment with ${jobTitle}`}`,
-        weaknesses: `• Could elaborate further on edge-case recovery and architectural trade-offs`,
-        comments: `Candidate actively answered questions during the ${interviewType || 'technical'} interview round. ${lastAnswers}`,
-        recommendation: 'YES',
-        summary: `During the ${interviewType || 'technical'} round for ${jobTitle}, ${candName} exchanged live dialogue. ${lastAnswers} Overall demonstrated clear domain alignment.`,
+        ...parsed,
+        technicalRating: sanitizeRating(parsed.technicalRating, 8),
+        communicationRating: sanitizeRating(parsed.communicationRating, 8),
+        problemSolvingRating: sanitizeRating(parsed.problemSolvingRating, 8),
+        cultureFitRating: sanitizeRating(parsed.cultureFitRating, 8),
+        recommendation: rec,
+      };
+    } catch (error: any) {
+      console.error('AI Copilot Feedback Draft Fallback triggered:', error?.message || error);
+
+      const candidateAnswersList = (transcript || '')
+        .split('\n')
+        .filter(l => l.toLowerCase().startsWith('candidate:'))
+        .map(l => l.replace(/^candidate:\s*/i, '').trim())
+        .filter(Boolean);
+
+      const isLowQualityOrRefusal = candidateAnswersList.some(a =>
+        /^(idk|hehe|dont know|don't know|no idea|not sure|pass|na|n\/a)$/i.test(a.trim()) ||
+        a.toLowerCase().includes('idk') ||
+        a.toLowerCase().includes('hehe')
+      ) || (candidateAnswersList.length > 0 && candidateAnswersList.join('').length < 15);
+
+      const sampleText = candidateAnswersList.join('; ').slice(0, 150) || 'no dialogue recorded';
+
+      if (isLowQualityOrRefusal) {
+        return {
+          technicalRating: 2,
+          communicationRating: 3,
+          problemSolvingRating: 2,
+          cultureFitRating: 3,
+          strengths: `• Candidate engaged in live session dialogue`,
+          weaknesses: `• Provided non-substantive or refusal responses ("${sampleText}")\n• Failed to demonstrate domain knowledge or communicate effectively during ${currentRound} round`,
+          comments: `Candidate provided evasive or non-substantive responses during the ${currentRound} round ("${sampleText}").`,
+          recommendation: 'STRONG_NO',
+          summary: `During the ${currentRound} round for ${jobTitle}, ${candName} provided non-substantive responses ("${sampleText}"). Recommendation is NOT TO HIRE based on lack of demonstrated competency.`,
+        };
+      }
+
+      const lastAnswers = candidateAnswersList.length > 0
+        ? `The candidate stated: "${candidateAnswersList.join('; ').slice(0, 220)}".`
+        : `Candidate completed the ${currentRound} interview session.`;
+
+      return {
+        technicalRating: candidateAnswersList.length > 0 ? 7 : 5,
+        communicationRating: candidateAnswersList.length > 0 ? 7 : 5,
+        problemSolvingRating: candidateAnswersList.length > 0 ? 7 : 5,
+        cultureFitRating: candidateAnswersList.length > 0 ? 7 : 5,
+        strengths: `• Active engagement during ${currentRound} round\n• ${candidateAnswersList.length > 0 ? `Discussed: ${candidateAnswersList[0].slice(0, 80)}` : `Demonstrated background alignment with ${jobTitle}`}`,
+        weaknesses: `• Could elaborate further on edge-case recovery and domain trade-offs`,
+        comments: `Candidate answered questions during the ${currentRound} interview round. ${lastAnswers}`,
+        recommendation: candidateAnswersList.length > 0 ? 'MAYBE' : 'NO',
+        summary: `During the ${currentRound} round for ${jobTitle}, ${candName} exchanged live dialogue. ${lastAnswers}`,
       };
     }
   },
@@ -794,7 +915,7 @@ export const aiService = {
       `;
 
       const response = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: DEFAULT_AI_MODEL,
         max_tokens: 1000,
         messages: [
           { role: 'system', content: 'You are an expert Technical AI Copilot. Respond ONLY with valid JSON.' },
@@ -803,7 +924,8 @@ export const aiService = {
         response_format: { type: 'json_object' },
       });
 
-      const content = response.choices[0]?.message?.content;
+      const rawContent = response.choices[0]?.message?.content || '';
+      const content = cleanJsonContent(rawContent);
       if (!content) {
         throw new Error('Invalid response payload from AI Copilot questions service');
       }

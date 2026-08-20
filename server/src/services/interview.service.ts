@@ -44,7 +44,7 @@ export const interviewService = {
     });
   },
 
-  async getInterviewById(id: string) {
+  async getInterviewById(id: string, userRole?: string) {
     const interview = await prisma.interview.findUnique({
       where: { id },
       select: {
@@ -58,6 +58,7 @@ export const interviewService = {
         meetingLink: true,
         notes: true,
         transcript: true,
+        startedAt: true,
         createdAt: true,
         updatedAt: true,
         candidate: {
@@ -83,6 +84,19 @@ export const interviewService = {
       throw { statusCode: 404, message: 'Interview not found' };
     }
 
+    if (userRole === 'CANDIDATE' && !interview.startedAt && interview.status !== 'COMPLETED' && interview.status !== 'CANCELLED') {
+      const now = new Date();
+      await prisma.interview.update({
+        where: { id },
+        data: {
+          startedAt: now,
+          status: 'IN_PROGRESS',
+        },
+      });
+      interview.startedAt = now;
+      interview.status = 'IN_PROGRESS';
+    }
+
     return interview;
   },
 
@@ -93,6 +107,7 @@ export const interviewService = {
         id: true,
         status: true,
         transcript: true,
+        startedAt: true,
         updatedAt: true,
       },
     });
@@ -315,14 +330,15 @@ export const interviewService = {
     const job = candidate.job;
     const transcriptText = customTranscript ?? interview.transcript ?? '';
 
-    // Save final transcript and set status to COMPLETED if active/scheduled
-    await prisma.interview.update({
-      where: { id },
-      data: {
-        transcript: transcriptText,
-        status: 'COMPLETED',
-      },
-    });
+    // Save transcript without changing interview status to COMPLETED prematurely
+    if (customTranscript !== undefined && customTranscript !== interview.transcript) {
+      await prisma.interview.update({
+        where: { id },
+        data: {
+          transcript: transcriptText,
+        },
+      });
+    }
 
     return aiService.generateCopilotFeedbackDraft(
       {

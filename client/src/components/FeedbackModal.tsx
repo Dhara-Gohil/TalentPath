@@ -152,11 +152,11 @@ const FeedbackModal = ({ open, onClose, interviewId, roundType = 'TECHNICAL', on
           </Grid>
           <Grid item xs={12}>
             <TextField select fullWidth label="Hiring Recommendation" defaultValue="MAYBE" inputProps={register('recommendation')} error={!!errors.recommendation} helperText={errors.recommendation?.message} size="small">
-              <MenuItem value="STRONG_YES">Strong Hire (Strong Yes)</MenuItem>
-              <MenuItem value="YES">Hire (Yes)</MenuItem>
-              <MenuItem value="MAYBE">Borderline (Maybe)</MenuItem>
-              <MenuItem value="NO">Do Not Hire (No)</MenuItem>
-              <MenuItem value="STRONG_NO">Strong Reject (Strong No)</MenuItem>
+              <MenuItem value="STRONG_YES">Strong Hire</MenuItem>
+              <MenuItem value="YES">Hire</MenuItem>
+              <MenuItem value="MAYBE">Need More Evaluation</MenuItem>
+              <MenuItem value="NO">Do Not Hire</MenuItem>
+              <MenuItem value="STRONG_NO">Strong Reject</MenuItem>
             </TextField>
           </Grid>
         </Grid>

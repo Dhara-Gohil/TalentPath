@@ -91,6 +91,7 @@ model Interview {
   meetingLink   String?
   notes         String?
   transcript    String?
+  startedAt     DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
